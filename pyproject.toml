@@ -15,3 +15,7 @@ dependencies = [
     "fake-openai>=0.2.0",
     "respx>=0.21.0",
 ]
+
+[tool.setuptools]
+package-dir = {transparent_sheet = "."}
+packages = ["transparent_sheet", "transparent_sheet.orchestration", "transparent_sheet.agents", "transparent_sheet.agents.tools", "transparent_sheet.datastore", "transparent_sheet.channels", "transparent_sheet.console", "transparent_sheet.feishu"]
