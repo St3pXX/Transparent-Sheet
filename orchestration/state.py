@@ -1,6 +1,11 @@
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, Any
 
 class OrchestrationState(TypedDict):
+    # create_react_agent required keys
+    messages: list[Any]
+    remaining_steps: int
+
+    # Task context
     task_id: str
     user_id: str
     task: str
