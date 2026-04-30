@@ -1,8 +1,14 @@
-from typing import TypedDict, Literal, Any
+from typing import TypedDict, Literal, Any, Annotated
+
+
+def _merge_dicts(left: dict, right: dict) -> dict:
+    """Merge two dicts — right takes precedence on key conflicts."""
+    return {**left, **right}
+
 
 class OrchestrationState(TypedDict):
     # create_react_agent required keys
-    messages: list[Any]
+    messages: Annotated[list[Any], lambda a, b: a + b]
     remaining_steps: int
 
     # Task context
@@ -15,10 +21,10 @@ class OrchestrationState(TypedDict):
     record_ids: list[str]
     anomaly_record_ids: list[str]
 
-    agent_status: dict[str, str]
-    agent_outputs: dict[str, str]
+    agent_status: Annotated[dict[str, str], _merge_dicts]
+    agent_outputs: Annotated[dict[str, str], _merge_dicts]
 
-    risk_levels: dict[str, str]
+    risk_levels: Annotated[dict[str, str], _merge_dicts]
     analysis_summary: str
     report_content: str
     original_report: str

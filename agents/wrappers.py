@@ -36,6 +36,10 @@ def _parse_key_value(text: str, key: str) -> Any:
     match = re.search(pattern, text)
     return match.group(1).strip() if match else None
 
+def _filter_messages(state: dict) -> dict:
+    """Remove messages from state to avoid concurrent write conflicts."""
+    return {k: v for k, v in state.items() if k != "messages"}
+
 # ============ Entry Wrapper ============
 def entry_node_wrapper(state: OrchestrationState) -> OrchestrationState:
     """
@@ -45,7 +49,10 @@ def entry_node_wrapper(state: OrchestrationState) -> OrchestrationState:
     """
     try:
         agent = build_entry_agent()
-        result = agent.invoke({"messages": [("user", state["task"])]})
+        result = agent.invoke({
+            "messages": [("user", state["task"])],
+            **{k: v for k, v in state.items() if k not in ("messages",)}
+        })
 
         output_text = result["messages"][-1].content if result.get("messages") else ""
         record_ids = _extract_record_ids_from_result(output_text)
@@ -57,7 +64,7 @@ def entry_node_wrapper(state: OrchestrationState) -> OrchestrationState:
         new_outputs["entry"] = f"录入 {len(record_ids)} 条记录" if record_ids else "录入失败"
 
         return {
-            **state,
+            **_filter_messages(state),
             "record_ids": record_ids,
             "agent_status": new_status,
             "agent_outputs": new_outputs,
@@ -68,7 +75,7 @@ def entry_node_wrapper(state: OrchestrationState) -> OrchestrationState:
         new_outputs = dict(state.get("agent_outputs", {}))
         new_outputs["entry"] = f"错误：{str(e)}"
         return {
-            **state,
+            **_filter_messages(state),
             "agent_status": new_status,
             "agent_outputs": new_outputs,
         }
@@ -93,7 +100,7 @@ def review_node_wrapper(state: OrchestrationState) -> OrchestrationState:
         new_outputs["review"] = f"审核完成，异常记录：{len(anomaly_ids)} 条"
 
         return {
-            **state,
+            **_filter_messages(state),
             "anomaly_record_ids": anomaly_ids,
             "agent_status": new_status,
             "agent_outputs": new_outputs,
@@ -104,7 +111,7 @@ def review_node_wrapper(state: OrchestrationState) -> OrchestrationState:
         new_outputs = dict(state.get("agent_outputs", {}))
         new_outputs["review"] = f"错误：{str(e)}"
         return {
-            **state,
+            **_filter_messages(state),
             "agent_status": new_status,
             "agent_outputs": new_outputs,
         }
@@ -129,7 +136,7 @@ def analysis_node_wrapper(state: OrchestrationState) -> OrchestrationState:
         new_outputs["analysis"] = summary[:100]
 
         return {
-            **state,
+            **_filter_messages(state),
             "analysis_summary": summary,
             "agent_status": new_status,
             "agent_outputs": new_outputs,
@@ -140,7 +147,7 @@ def analysis_node_wrapper(state: OrchestrationState) -> OrchestrationState:
         new_outputs = dict(state.get("agent_outputs", {}))
         new_outputs["analysis"] = f"错误：{str(e)}"
         return {
-            **state,
+            **_filter_messages(state),
             "agent_status": new_status,
             "agent_outputs": new_outputs,
         }
@@ -173,7 +180,7 @@ def risk_node_wrapper(state: OrchestrationState) -> OrchestrationState:
         new_outputs["risk"] = f"风险检测完成，high: {sum(1 for v in risk_levels.values() if v=='high')} 条"
 
         return {
-            **state,
+            **_filter_messages(state),
             "risk_levels": risk_levels,
             "agent_status": new_status,
             "agent_outputs": new_outputs,
@@ -184,7 +191,7 @@ def risk_node_wrapper(state: OrchestrationState) -> OrchestrationState:
         new_outputs = dict(state.get("agent_outputs", {}))
         new_outputs["risk"] = f"错误：{str(e)}"
         return {
-            **state,
+            **_filter_messages(state),
             "agent_status": new_status,
             "agent_outputs": new_outputs,
         }
@@ -214,7 +221,7 @@ def report_node_wrapper(state: OrchestrationState) -> OrchestrationState:
         new_status["report"] = "success"
 
         return {
-            **state,
+            **_filter_messages(state),
             "report_content": output_text,
             "original_report": output_text,
             "pending_confirmations": pending,
@@ -230,7 +237,7 @@ def report_node_wrapper(state: OrchestrationState) -> OrchestrationState:
         new_outputs = dict(state.get("agent_outputs", {}))
         new_outputs["report"] = f"错误：{str(e)}"
         return {
-            **state,
+            **_filter_messages(state),
             "agent_status": new_status,
             "agent_outputs": {
                 **new_outputs,
