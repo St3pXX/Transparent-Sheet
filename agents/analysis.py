@@ -12,9 +12,8 @@ SYSTEM_PROMPT = """你是 Analysis Agent（分析师）。
 - agent_outputs['analysis'] 写入输出摘要
 - agent_status['analysis'] 标记 success/failed"""
 
-llm = ChatOpenAI(model="gpt-4o")
-
 def build_analysis_agent():
+    llm = ChatOpenAI(model="gpt-4o")
     return create_react_agent(
         llm,
         tools=[get_records_tool, save_agent_output_tool],

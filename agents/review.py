@@ -14,9 +14,8 @@ anomaly_record_ids 必须写入 state['anomaly_record_ids']。
 agent_outputs['review'] 写入审核摘要。
 agent_status['review'] 标记 success/failed。"""
 
-llm = ChatOpenAI(model="gpt-4o")
-
 def build_review_agent():
+    llm = ChatOpenAI(model="gpt-4o")
     return create_react_agent(
         llm,
         tools=[get_records_tool, save_agent_output_tool],

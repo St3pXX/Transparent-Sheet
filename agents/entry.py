@@ -12,9 +12,8 @@ SYSTEM_PROMPT = """你是 Entry Agent（数据员）。
 关键：record_ids 必须写入 state['record_ids']，这是所有下游 Agent 的数据入口。
 agent_status['entry'] 标记 success/failed。"""
 
-llm = ChatOpenAI(model="gpt-4o")
-
 def build_entry_agent():
+    llm = ChatOpenAI(model="gpt-4o")
     return create_react_agent(
         llm,
         tools=[save_records_tool],

@@ -13,9 +13,8 @@ SYSTEM_PROMPT = """你是 Risk Agent（风控员）。
 - agent_outputs['risk'] 写入风控摘要
 - agent_status['risk'] 标记 success/failed"""
 
-llm = ChatOpenAI(model="gpt-4o")
-
 def build_risk_agent():
+    llm = ChatOpenAI(model="gpt-4o")
     return create_react_agent(
         llm,
         tools=[get_records_tool, save_agent_output_tool],

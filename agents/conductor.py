@@ -18,7 +18,6 @@ SYSTEM_PROMPT = """你是一个电商运营虚拟团队的 Orchestra Conductor�
 
 你是协调者，不执行具体分析，只做规划和路由。"""
 
-llm = ChatOpenAI(model="gpt-4o")
-
 def build_conductor_agent():
+    llm = ChatOpenAI(model="gpt-4o")
     return create_react_agent(llm, tools=[], state_schema=OrchestrationState)

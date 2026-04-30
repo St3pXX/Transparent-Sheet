@@ -14,9 +14,8 @@ SYSTEM_PROMPT = """你是 Report Agent（秘书）。
 - agent_outputs['report'] 写入输出摘要
 - agent_status['report'] 标记 success/failed"""
 
-llm = ChatOpenAI(model="gpt-4o")
-
 def build_report_agent():
+    llm = ChatOpenAI(model="gpt-4o")
     return create_react_agent(
         llm,
         tools=[save_agent_output_tool],
