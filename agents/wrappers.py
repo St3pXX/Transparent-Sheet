@@ -43,139 +43,197 @@ def entry_node_wrapper(state: OrchestrationState) -> OrchestrationState:
     2. 从 Agent 输出中解析 record_ids
     3. 返回更新后的 State
     """
-    agent = build_entry_agent()
-    result = agent.invoke({"messages": [("user", state["task"])]})
+    try:
+        agent = build_entry_agent()
+        result = agent.invoke({"messages": [("user", state["task"])]})
 
-    output_text = result["messages"][-1].content if result.get("messages") else ""
-    record_ids = _extract_record_ids_from_result(output_text)
+        output_text = result["messages"][-1].content if result.get("messages") else ""
+        record_ids = _extract_record_ids_from_result(output_text)
 
-    new_status = dict(state.get("agent_status", {}))
-    new_status["entry"] = "success" if record_ids else "failed"
+        new_status = dict(state.get("agent_status", {}))
+        new_status["entry"] = "success" if record_ids else "failed"
 
-    new_outputs = dict(state.get("agent_outputs", {}))
-    new_outputs["entry"] = f"录入 {len(record_ids)} 条记录" if record_ids else "录入失败"
+        new_outputs = dict(state.get("agent_outputs", {}))
+        new_outputs["entry"] = f"录入 {len(record_ids)} 条记录" if record_ids else "录入失败"
 
-    return {
-        **state,
-        "record_ids": record_ids,
-        "agent_status": new_status,
-        "agent_outputs": new_outputs,
-    }
+        return {
+            **state,
+            "record_ids": record_ids,
+            "agent_status": new_status,
+            "agent_outputs": new_outputs,
+        }
+    except Exception as e:
+        new_status = dict(state.get("agent_status", {}))
+        new_status["entry"] = "failed"
+        new_outputs = dict(state.get("agent_outputs", {}))
+        new_outputs["entry"] = f"错误：{str(e)}"
+        return {
+            **state,
+            "agent_status": new_status,
+            "agent_outputs": new_outputs,
+        }
 
 # ============ Review Wrapper ============
 def review_node_wrapper(state: OrchestrationState) -> OrchestrationState:
     """调用 Review Agent，解析 anomaly_record_ids，更新 agent_status。"""
-    agent = build_review_agent()
-    result = agent.invoke({
-        "messages": [("user", f"请审核以下记录：{state['record_ids']}")],
-        **{k: v for k, v in state.items() if k not in ("messages",)}
-    })
+    try:
+        agent = build_review_agent()
+        result = agent.invoke({
+            "messages": [("user", f"请审核以下记录：{state['record_ids']}")],
+            **{k: v for k, v in state.items() if k not in ("messages",)}
+        })
 
-    output_text = result["messages"][-1].content if result.get("messages") else ""
-    anomaly_ids = _extract_record_ids_from_result(output_text)
+        output_text = result["messages"][-1].content if result.get("messages") else ""
+        anomaly_ids = _extract_record_ids_from_result(output_text)
 
-    new_status = dict(state.get("agent_status", {}))
-    new_status["review"] = "success"
+        new_status = dict(state.get("agent_status", {}))
+        new_status["review"] = "success"
 
-    new_outputs = dict(state.get("agent_outputs", {}))
-    new_outputs["review"] = f"审核完成，异常记录：{len(anomaly_ids)} 条"
+        new_outputs = dict(state.get("agent_outputs", {}))
+        new_outputs["review"] = f"审核完成，异常记录：{len(anomaly_ids)} 条"
 
-    return {
-        **state,
-        "anomaly_record_ids": anomaly_ids,
-        "agent_status": new_status,
-        "agent_outputs": new_outputs,
-    }
+        return {
+            **state,
+            "anomaly_record_ids": anomaly_ids,
+            "agent_status": new_status,
+            "agent_outputs": new_outputs,
+        }
+    except Exception as e:
+        new_status = dict(state.get("agent_status", {}))
+        new_status["review"] = "failed"
+        new_outputs = dict(state.get("agent_outputs", {}))
+        new_outputs["review"] = f"错误：{str(e)}"
+        return {
+            **state,
+            "agent_status": new_status,
+            "agent_outputs": new_outputs,
+        }
 
 # ============ Analysis Wrapper ============
 def analysis_node_wrapper(state: OrchestrationState) -> OrchestrationState:
     """调用 Analysis Agent，解析 analysis_summary，更新 agent_status。"""
-    agent = build_analysis_agent()
-    result = agent.invoke({
-        "messages": [("user", f"请分析以下记录：{state['record_ids']}")],
-        **{k: v for k, v in state.items() if k not in ("messages",)}
-    })
+    try:
+        agent = build_analysis_agent()
+        result = agent.invoke({
+            "messages": [("user", f"请分析以下记录：{state['record_ids']}")],
+            **{k: v for k, v in state.items() if k not in ("messages",)}
+        })
 
-    output_text = result["messages"][-1].content if result.get("messages") else ""
-    summary = _parse_key_value(output_text, "analysis_summary") or output_text[:200]
+        output_text = result["messages"][-1].content if result.get("messages") else ""
+        summary = _parse_key_value(output_text, "analysis_summary") or output_text[:200]
 
-    new_status = dict(state.get("agent_status", {}))
-    new_status["analysis"] = "success"
+        new_status = dict(state.get("agent_status", {}))
+        new_status["analysis"] = "success"
 
-    new_outputs = dict(state.get("agent_outputs", {}))
-    new_outputs["analysis"] = summary[:100]
+        new_outputs = dict(state.get("agent_outputs", {}))
+        new_outputs["analysis"] = summary[:100]
 
-    return {
-        **state,
-        "analysis_summary": summary,
-        "agent_status": new_status,
-        "agent_outputs": new_outputs,
-    }
+        return {
+            **state,
+            "analysis_summary": summary,
+            "agent_status": new_status,
+            "agent_outputs": new_outputs,
+        }
+    except Exception as e:
+        new_status = dict(state.get("agent_status", {}))
+        new_status["analysis"] = "failed"
+        new_outputs = dict(state.get("agent_outputs", {}))
+        new_outputs["analysis"] = f"错误：{str(e)}"
+        return {
+            **state,
+            "agent_status": new_status,
+            "agent_outputs": new_outputs,
+        }
 
 # ============ Risk Wrapper ============
 def risk_node_wrapper(state: OrchestrationState) -> OrchestrationState:
     """调用 Risk Agent，解析 risk_levels dict，更新 agent_status。"""
-    agent = build_risk_agent()
-    result = agent.invoke({
-        "messages": [("user", f"请检测风险：{state['record_ids']}")],
-        **{k: v for k, v in state.items() if k not in ("messages",)}
-    })
+    try:
+        agent = build_risk_agent()
+        result = agent.invoke({
+            "messages": [("user", f"请检测风险：{state['record_ids']}")],
+            **{k: v for k, v in state.items() if k not in ("messages",)}
+        })
 
-    output_text = result["messages"][-1].content if result.get("messages") else ""
+        output_text = result["messages"][-1].content if result.get("messages") else ""
 
-    risk_levels: dict[str, str] = {}
-    for line in output_text.split("\n"):
-        if any(l in line.lower() for l in ["high", "medium", "low"]):
-            parts = line.strip().split()
-            for p in parts:
-                if p.lower() in ["high", "medium", "low"]:
-                    rid = line.replace(p, "").strip().split()[-1]
-                    risk_levels[rid] = p.lower()
+        risk_levels: dict[str, str] = {}
+        for line in output_text.split("\n"):
+            if any(l in line.lower() for l in ["high", "medium", "low"]):
+                parts = line.strip().split()
+                for p in parts:
+                    if p.lower() in ["high", "medium", "low"]:
+                        rid = line.replace(p, "").strip().split()[-1]
+                        risk_levels[rid] = p.lower()
 
-    new_status = dict(state.get("agent_status", {}))
-    new_status["risk"] = "success"
+        new_status = dict(state.get("agent_status", {}))
+        new_status["risk"] = "success"
 
-    new_outputs = dict(state.get("agent_outputs", {}))
-    new_outputs["risk"] = f"风险检测完成，high: {sum(1 for v in risk_levels.values() if v=='high')} 条"
+        new_outputs = dict(state.get("agent_outputs", {}))
+        new_outputs["risk"] = f"风险检测完成，high: {sum(1 for v in risk_levels.values() if v=='high')} 条"
 
-    return {
-        **state,
-        "risk_levels": risk_levels,
-        "agent_status": new_status,
-        "agent_outputs": new_outputs,
-    }
+        return {
+            **state,
+            "risk_levels": risk_levels,
+            "agent_status": new_status,
+            "agent_outputs": new_outputs,
+        }
+    except Exception as e:
+        new_status = dict(state.get("agent_status", {}))
+        new_status["risk"] = "failed"
+        new_outputs = dict(state.get("agent_outputs", {}))
+        new_outputs["risk"] = f"错误：{str(e)}"
+        return {
+            **state,
+            "agent_status": new_status,
+            "agent_outputs": new_outputs,
+        }
 
 # ============ Report Wrapper ============
 def report_node_wrapper(state: OrchestrationState) -> OrchestrationState:
     """调用 Report Agent，解析 report_content 和 pending_confirmations。"""
-    agent = build_report_agent()
-    context = (
-        f"Review 结果：{state.get('agent_outputs', {}).get('review', '')}\n"
-        f"Analysis 结果：{state.get('analysis_summary', '')}\n"
-        f"Risk 结果：{state.get('risk_levels', {})}\n"
-    )
-    result = agent.invoke({
-        "messages": [("user", f"请生成运营周报。上下文：\n{context}")],
-        **{k: v for k, v in state.items() if k not in ("messages",)}
-    })
+    try:
+        agent = build_report_agent()
+        context = (
+            f"Review 结果：{state.get('agent_outputs', {}).get('review', '')}\n"
+            f"Analysis 结果：{state.get('analysis_summary', '')}\n"
+            f"Risk 结果：{state.get('risk_levels', {})}\n"
+        )
+        result = agent.invoke({
+            "messages": [("user", f"请生成运营周报。上下文：\n{context}")],
+            **{k: v for k, v in state.items() if k not in ("messages",)}
+        })
 
-    output_text = result["messages"][-1].content if result.get("messages") else ""
+        output_text = result["messages"][-1].content if result.get("messages") else ""
 
-    pending = []
-    if "pending" in output_text.lower() or "确认" in output_text:
-        pending = [{"item": "数据来源需要人工确认", "type": "data_source"}]
+        pending = []
+        if "pending" in output_text.lower() or "确认" in output_text:
+            pending = [{"item": "数据来源需要人工确认", "type": "data_source"}]
 
-    new_status = dict(state.get("agent_status", {}))
-    new_status["report"] = "success"
+        new_status = dict(state.get("agent_status", {}))
+        new_status["report"] = "success"
 
-    return {
-        **state,
-        "report_content": output_text,
-        "original_report": output_text,
-        "pending_confirmations": pending,
-        "agent_status": new_status,
-        "agent_outputs": {
-            **dict(state.get("agent_outputs", {})),
-            "report": output_text[:100],
-        },
-    }
+        return {
+            **state,
+            "report_content": output_text,
+            "original_report": output_text,
+            "pending_confirmations": pending,
+            "agent_status": new_status,
+            "agent_outputs": {
+                **dict(state.get("agent_outputs", {})),
+                "report": output_text[:100],
+            },
+        }
+    except Exception as e:
+        new_status = dict(state.get("agent_status", {}))
+        new_status["report"] = "failed"
+        new_outputs = dict(state.get("agent_outputs", {}))
+        new_outputs["report"] = f"错误：{str(e)}"
+        return {
+            **state,
+            "agent_status": new_status,
+            "agent_outputs": {
+                **new_outputs,
+                "report": f"错误：{str(e)}",
+            },
+        }
