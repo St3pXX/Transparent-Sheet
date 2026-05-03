@@ -1,5 +1,5 @@
-from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent
+from langgraph.prebuilt import create_react_agent  # noqa: F401
+from transparent_sheet.llm import get_llm
 from transparent_sheet.orchestration.state import OrchestrationState
 
 SYSTEM_PROMPT = """你是一个电商运营虚拟团队的 Orchestra Conductor（调度员）。
@@ -19,5 +19,5 @@ SYSTEM_PROMPT = """你是一个电商运营虚拟团队的 Orchestra Conductor�
 你是协调者，不执行具体分析，只做规划和路由。"""
 
 def build_conductor_agent():
-    llm = ChatOpenAI(model="gpt-4o")
+    llm = get_llm(temperature=0.3)
     return create_react_agent(llm, tools=[], state_schema=OrchestrationState)

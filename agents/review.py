@@ -1,5 +1,5 @@
-from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent
+from langgraph.prebuilt import create_react_agent  # noqa: F401
+from transparent_sheet.llm import get_llm
 from transparent_sheet.orchestration.state import OrchestrationState
 from transparent_sheet.agents.tools.datastore import get_records_tool, save_agent_output_tool
 
@@ -15,7 +15,7 @@ agent_outputs['review'] 写入审核摘要。
 agent_status['review'] 标记 success/failed。"""
 
 def build_review_agent():
-    llm = ChatOpenAI(model="gpt-4o")
+    llm = get_llm(temperature=0.3)
     return create_react_agent(
         llm,
         tools=[get_records_tool, save_agent_output_tool],
