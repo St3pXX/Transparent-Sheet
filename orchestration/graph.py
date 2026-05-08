@@ -8,6 +8,7 @@ from transparent_sheet.agents.wrappers import (
     risk_node_wrapper,
     report_node_wrapper,
 )
+from transparent_sheet.orchestration.writeback import writeback_node
 
 def handle_partial_failure(state: OrchestrationState) -> OrchestrationState:
     """并行 Agent 失败时，标记它并继续。"""
@@ -32,7 +33,7 @@ def build_graph():
     builder.add_node("report_node", report_node_wrapper)
     builder.add_node("finish_report_node", lambda state: state)  # passthrough interrupt point
     builder.add_node("revise_report_node", report_node_wrapper)
-    builder.add_node("writeback_node", lambda state: state)
+    builder.add_node("writeback_node", writeback_node)
     builder.add_node("error_handler_node", handle_partial_failure)
 
     # Edges

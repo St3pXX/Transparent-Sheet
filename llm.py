@@ -9,7 +9,7 @@ from langchain_openai import ChatOpenAI
 # 默认值（从环境变量读取）
 API_KEY = os.getenv("OPENAI_API_KEY", "")
 BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.minimax.chat/v1")
-MODEL = os.getenv("OPENAI_MODEL", "MiniMax-m2")
+MODEL = os.getenv("OPENAI_MODEL", "MiniMax-M2.5")
 
 def get_llm(model: str = None, temperature: float = 0.7) -> ChatOpenAI:
     """
