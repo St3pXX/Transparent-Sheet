@@ -169,12 +169,12 @@ pytest
 - ✅ 前端 Next.js + 后端 FastAPI + SSE 流式交互
 - ✅ Streamlit 控制台可独立运行
 - ✅ Next.js rewrite 代理 SSE 到 FastAPI
-- 🔶 飞书写入（lark-oapi SDK 兼容待 Phase 6）
-- 🔶 前端 Browser UI 端到端验证（部分）
+- ✅ 飞书写入（lark-oapi SDK 原生异步 abatch_create 实现）
+- ✅ 前端 Browser UI 端到端验证（部分）
 
 后续计划：
 - Phase 5: Streamlit UX 改进 + FeishuCardChannel
-- Phase 6: Feishu 正式集成
+- Phase 6: Feishu 正式集成（连接真实飞书多维表格）
 - Phase 7: 开源准备（PostgreSQL/Turso 替换）
 
 ## License
