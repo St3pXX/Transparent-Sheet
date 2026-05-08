@@ -10,40 +10,104 @@
 
 ## 特性
 
-- **透明化推理**：每个 Agent 的思考过程清晰可见
-- **多 Agent 协作**：Entry → Review/Analysis/Risk 并行 → Report → 人工确认 → 写入飞书
-- **Human-in-loop**：关键节点需人工确认，保证数据安全
-- **可扩展架构**：DataStore、ConfirmationChannel 抽象层设计
+- **透明化推理**：每个 Agent 的思考过程清晰可见，状态实时更新到前端
+- **多 Agent 并行协作**：Entry Agent 串行执行入口任务，三节点（Review/Analysis/Risk）并行 fan-out，Report Agent 汇总结果
+- **Human-in-loop 中断恢复**：执行流程在写入飞书前中断等待人工确认，支持 interrupt/resume
+- **可扩展数据层**：DataStore 抽象接口，可从 SQLite 切换到 PostgreSQL/Turso
+- **多渠道确认**：ConfirmationChannel 抽象，支持 Streamlit 或 Feishu Card 等不同 UI 渠道
+- **状态持久化**：基于 LangGraph Checkpointer，支持断点续传和线程级恢复
 
 ## 架构
 
+### Agent 执行流程
+
 ```
-Entry Agent ──►  ┌─► Review Agent  ──┐
-                 ├──► Analysis Agent ──┤
-                 └──► Risk Agent  ─────┘ ──► Report Agent ──► 人工确认 ──► 飞书写入
+┌─────────────────────────────────────────────────────────┐
+│                      Entry Agent                        │
+│              解析用户输入，触发任务初始化                   │
+└──────────────────────┬──────────────────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│            Review / Analysis / Risk Agents              │  ◄── 并行 fan-out
+│  Review: 补全数据质量评估   Analysis: 销售分析   Risk: 风险检测 │
+└──────────────────────┬──────────────────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│                     Report Agent                         │
+│              汇总三节点输出，生成结构化报告                  │
+└──────────────────────┬──────────────────────────────────┘
+                       ▼
+              [ 人工确认中断等待 ]
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│                     Writeback                            │
+│                    写入飞书多维表格                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-**技术栈：**
+### 核心模块
 
-- **后端**：Python + LangGraph + LangChain + aiosqlite
-- **前端**：Next.js 15 + Tailwind CSS + TypeScript + Zustand
-- **集成**：Feishu SDK
+| 模块 | 说明 |
+|------|------|
+| `agents/` | 6 个 Agent 定义：conductor（调度）、entry（入口）、review（审核）、analysis（分析）、risk（风险）、report（汇报） |
+| `orchestration/` | LangGraph 图定义 + OrchestrationState（控制流） |
+| `datastore/` | DataStore 抽象层 + SQLite 实现（数据存储） |
+| `channels/` | ConfirmationChannel 抽象（确认渠道） |
+| `config/` | LLM 配置（统一管理各 Agent 的模型初始化） |
+| `feishu/` | 飞书 API 客户端（写入多维表格） |
+
+### 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| Agent 编排 | LangGraph + LangChain（`create_react_agent`） |
+| 数据存储 | aiosqlite（异步 SQLite） |
+| 前端框架 | Next.js 15 + App Router |
+| 样式 | Tailwind CSS |
+| 状态管理 | Zustand |
+| 实时通信 | Server-Sent Events（SSE） |
+| 飞书集成 | Feishu SDK |
 
 ## 项目结构
 
 ```
 transparent-sheet/
-├── agents/                 # 6 个 Agent（conductor, entry, review, analysis, risk, report）
-│   └── tools/              # demo_data, datastore 工具
-├── orchestration/           # Graph + State编排
-├── datastore/              # 抽象层 + SQLite 实现
-├── channels/               # ConfirmationChannel 抽象
-├── config/                 # LLM 配置
-├── feishu/                 # 飞书 API 客户端
-├── console/                # Streamlit 控制台（保留）
-├── frontend/               # Next.js 15 前端
-└── tests/                  # 单元测试
-```
+├── agents/                     # 6 个 Agent + tools
+│   ├── conductor.py            # Orchestration 调度 Agent
+│   ├── entry.py                # 入口 Agent，解析用户输入
+│   ├── review.py               # 审核 Agent，数据质量评估
+│   ├── analysis.py             # 分析 Agent，销售数据分析
+│   ├── risk.py                 # 风险 Agent，风险检测
+│   ├── report.py               # 汇报 Agent，汇总生成报告
+│   ├── wrappers.py             # Agent 工具包装器
+│   └── tools/
+│       ├── demo_data.py        # Demo 数据生成工具
+│       └── datastore.py        # DataStore 操作工具
+├── orchestration/
+│   ├── graph.py                # LangGraph 图定义
+│   ├── state.py                # OrchestrationState（控制流）
+│   └── writeback.py            # 飞书写入节点
+├── datastore/
+│   ├── interfaces.py          # DataStore 抽象接口
+│   ├── base.py                # 基础实现
+│   └── sqlite.py              # SQLite 异步实现
+├── channels/
+│   ├── base.py                # ConfirmationChannel 抽象
+│   ├── factory.py             # 渠道工厂
+│   └── streamlit.py           # Streamlit 确认渠道
+├── config/
+│   └── llm.py                # LLM 配置（统一管理模型初始化）
+├── feishu/
+│   ├── client.py              # 飞书 API 客户端
+│   └── exceptions.py          # 飞书异常定义
+├── frontend/                   # Next.js 15 前端
+│   ├── src/
+│   │   ├── app/              # App Router 页面
+│   │   ├── components/        # UI 组件
+│   │   ├── lib/              # Zustand store + SSE hook
+│   │   └── types/            # TypeScript 类型
+│   └── package.json
+└── tests/                     # 单元测试
 
 ## 快速开始
 
