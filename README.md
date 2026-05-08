@@ -2,7 +2,14 @@
 
 > 飞书多维表格上的多 Agent 虚拟运营团队
 
-电商运营场景的多 Agent 协作平台，通过 AI Agent 的透明化推理与协作，完成数据管理、分析、预警、汇报。
+电商运营场景的多 Agent AI 协作平台，运行于飞书多维表格之上。通过多个 AI Agent 的透明化推理与协作，帮助运营团队完成数据补全、质量审核、销售分析、风险预警和汇报生成。
+
+传统电商运营中，数据处理依赖人工逐条检查，效率低且易遗漏。TransparentSheet 将运营流程抽象为可编排的 Agent 流水线，让多个 AI Agent 并行处理不同维度的任务——补全缺失数据、评估数据质量、分析销售趋势、识别异常风险——最后汇总成结构化报告，等待人工确认后写入飞书表格，全程透明可追溯。
+
+**核心设计原则：**
+- 数据流与控制流分离 — State 只存引用，数据存 DataStore
+- 所有变更经过人工确认 — 写入飞书前必须人工审批，防止 AI 幻觉导致数据错误
+- 架构可替换 — DataStore 支持 SQLite / PostgreSQL / Turso，ConfirmationChannel 支持 Streamlit / Feishu Card
 
 ![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)
 ![Next.js](https://img.shields.io/badge/Next.js-15-green.svg)
