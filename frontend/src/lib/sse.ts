@@ -5,6 +5,7 @@ import { useConsoleStore } from "./store";
 import type { SSEEvent } from "@/types";
 
 const SSE_URL = "/stream";
+const CONFIRM_URL = "/confirm";
 
 export function useTaskStream() {
   const esRef = useRef<EventSource | null>(null);
@@ -81,7 +82,7 @@ export function useTaskStream() {
 
   const confirmTask = useCallback(
     async (taskId: string, action: "confirm" | "revise", modifications: unknown[] = []) => {
-      const res = await fetch(`/confirm/${taskId}?action=${action}&modifications=${encodeURIComponent(JSON.stringify(modifications))}`);
+      const res = await fetch(`${CONFIRM_URL}/${taskId}?action=${action}&modifications=${encodeURIComponent(JSON.stringify(modifications))}`);
       const reader = res.body?.getReader();
       if (!reader) return;
 
