@@ -1,5 +1,5 @@
 from langgraph.prebuilt import create_react_agent  # noqa: F401
-from transparent_sheet.llm import get_llm
+from transparent_sheet.config.llm import get_llm
 from transparent_sheet.orchestration.state import OrchestrationState
 from transparent_sheet.agents.tools.datastore import save_agent_output_tool
 

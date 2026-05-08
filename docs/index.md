@@ -40,24 +40,23 @@ docs/
 ```
 transparent-sheet/           # Python 后端（LangGraph Agent 编排）
 ├── agents/                 # 6 个 Agent 定义
-├── orchestration/          # Graph + State
+├── orchestration/           # Graph + State
 ├── datastore/              # 抽象层 + SQLite 实现
 ├── channels/               # ConfirmationChannel 抽象
 ├── console/                # 旧 Streamlit 控制台（保留）
-└── feishu/                 # 飞书 API 客户端
+├── feishu/                  # 飞书 API 客户端
+└── frontend/                # Next.js 15 前端
+    ├── src/
+    │   ├── app/            # App Router 页面
+    │   ├── components/     # UI 组件
+    │   ├── lib/            # Zustand store + SSE hook
+    │   └── types/          # TypeScript 类型
+    ├── tailwind.config.ts
+    └── package.json
 
 backend/                    # FastAPI SSE 网关（新建）
 ├── server.py               # SSE 端点，包装 LangGraph
 └── requirements.txt
-
-frontend/                   # Next.js 15 前端（新建）
-├── src/
-│   ├── app/               # App Router 页面
-│   ├── components/        # UI 组件
-│   ├── lib/               # Zustand store + SSE hook
-│   └── types/             # TypeScript 类型
-├── tailwind.config.ts
-└── package.json
 ```
 
 ## 快速链接
