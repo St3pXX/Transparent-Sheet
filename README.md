@@ -162,10 +162,18 @@ pytest
 
 ## 当前阶段
 
-**Phase 1-4**：控制台模式 Demo，核心逻辑开发中。
+**Phase 1-4**：控制台模式 Demo，核心逻辑已可用。
+
+- ✅ Graph 执行（LangGraph + MemorySaver Checkpointer）
+- ✅ 6 个 Agent 单元测试全部通过（15 passed）
+- ✅ 前端 Next.js + 后端 FastAPI + SSE 流式交互
+- ✅ Streamlit 控制台可独立运行
+- ✅ Next.js rewrite 代理 SSE 到 FastAPI
+- 🔶 飞书写入（lark-oapi SDK 兼容待 Phase 6）
+- 🔶 前端 Browser UI 端到端验证（部分）
 
 后续计划：
-- Phase 5: Streamlit UX 改进
+- Phase 5: Streamlit UX 改进 + FeishuCardChannel
 - Phase 6: Feishu 正式集成
 - Phase 7: 开源准备（PostgreSQL/Turso 替换）
 
