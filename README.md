@@ -67,7 +67,8 @@
 
 | 层级 | 技术 |
 |------|------|
-| Agent 编排 | LangGraph + LangChain（`create_react_agent`） |
+| Agent 编排 | LangGraph + LangChain + `create_react_agent` |
+| LLM | OpenAI 兼容接口（DeepSeek / MiniMax / OpenAI） |
 | 数据存储 | aiosqlite（异步 SQLite） |
 | 前端框架 | Next.js 15 + App Router |
 | 样式 | Tailwind CSS |
@@ -162,19 +163,20 @@ pytest
 
 ## 当前阶段
 
-**Phase 1-4**：控制台模式 Demo，核心逻辑已可用。
+**Phase 1-6**：核心流程全部打通 🎉
 
 - ✅ Graph 执行（LangGraph + MemorySaver Checkpointer）
 - ✅ 6 个 Agent 单元测试全部通过（15 passed）
 - ✅ 前端 Next.js + 后端 FastAPI + SSE 流式交互
 - ✅ Streamlit 控制台可独立运行
 - ✅ Next.js rewrite 代理 SSE 到 FastAPI
-- ✅ 飞书写入（lark-oapi SDK 原生异步 abatch_create 实现）
 - ✅ 前端 Browser UI 端到端验证（部分）
+- ✅ **DeepSeek LLM 集成**（deepseek-chat，真实 AI 推理）
+- ✅ **飞书多维表格写入**（自动创建字段 + batch_create，实测 20 条记录写入成功）
 
 后续计划：
 - Phase 5: Streamlit UX 改进 + FeishuCardChannel
-- Phase 6: Feishu 正式集成（连接真实飞书多维表格）
+- Phase 6: ~~Feishu 正式集成~~ ✅ **已完成**
 - Phase 7: 开源准备（PostgreSQL/Turso 替换）
 
 ## License
