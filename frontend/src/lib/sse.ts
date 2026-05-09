@@ -82,7 +82,9 @@ export function useTaskStream() {
 
   const confirmTask = useCallback(
     async (taskId: string, action: "confirm" | "revise", modifications: unknown[] = []) => {
-      const res = await fetch(`${CONFIRM_URL}/${taskId}?action=${action}&modifications=${encodeURIComponent(JSON.stringify(modifications))}`);
+      const res = await fetch(`${CONFIRM_URL}/${taskId}?action=${action}&modifications=${encodeURIComponent(JSON.stringify(modifications))}`, {
+        method: "POST",
+      });
       const reader = res.body?.getReader();
       if (!reader) return;
 

@@ -3,32 +3,48 @@
 import { useConsoleStore } from "@/lib/store";
 import { useTaskStream } from "@/lib/sse";
 
+const LEVEL_STYLES: Record<string, string> = {
+  red: "text-[--red]",
+  orange: "text-[--orange]",
+  yellow: "text-[--t3]",
+  default: "text-[--t2]",
+};
+
+function SuggestionItem({ item }: { item: { item: string; type: string } }) {
+  const level = item.type?.toLowerCase() || "default";
+  const color = LEVEL_STYLES[level] || LEVEL_STYLES["default"];
+  const label = level === "red" ? "紧急" : level === "orange" ? "次要" : level === "yellow" ? "关注" : "建议";
+
+  return (
+    <div className="text-[13.5px] text-[--t2] leading-[1.85]">
+      <strong className={color}>{label}</strong>
+      {" — "}{item.item}
+    </div>
+  );
+}
+
 export default function ReportCTA() {
   const { reportContent, pendingConfirmations, taskStatus, taskId } = useConsoleStore();
   const { confirmTask } = useTaskStream();
 
-  const isConfirming = taskStatus === "confirming" || taskStatus === "done";
+  const isConfirming = taskStatus === "confirming";
+  const isDone = taskStatus === "done";
 
-  if (!isConfirming && !reportContent) return null;
+  // Show only when we have something real to show
+  if (!isConfirming && !isDone && !reportContent) return null;
 
   const summary = reportContent
-    ? reportContent.slice(0, 300)
-    : "本周（04/21-04/27）运营数据已补录完成。共录入 847 笔订单，涵盖 5 个品类，销售额达 ¥128.6 万，较上周环比 +12.3%，整体运营态势良好。审核发现 2 条异常数据（已标注），风控识别高风险项目 1 项，需优先处理。";
-
-  const suggestions = [
-    { level: "red", label: "紧急", text: "商品A（SKU-2024-001）库存仅剩 23 件，预计 3 天内售罄，建议立即补货。" },
-    { level: "orange", label: "次要", text: "商品B价格波动异常，请核实近期调价记录。" },
-    { level: "t3", label: "关注", text: "物流延迟订单共 5 笔，建议主动联系客户说明情况，降低投诉风险。" },
-  ];
+    ? reportContent.slice(0, 400)
+    : "等待报告生成...";
 
   const handleConfirm = async () => {
     if (!taskId) return;
     await confirmTask(taskId, "confirm");
   };
 
-  const handleRevise = async () => {
-    if (!taskId) return;
-    await confirmTask(taskId, "revise");
+  const handleReset = () => {
+    const { resetTask } = useConsoleStore.getState();
+    resetTask();
   };
 
   return (
@@ -61,7 +77,7 @@ export default function ReportCTA() {
           </div>
         </div>
         <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-[--blue-d] text-[--blue] animate-blink">
-          {taskStatus === "done" ? "已完成" : "待确认"}
+          {isDone ? "已完成" : "待确认"}
         </span>
       </div>
 
@@ -74,42 +90,54 @@ export default function ReportCTA() {
           </div>
           <div className="text-[13.5px] text-[--t2] leading-[1.85]">
             {summary}
-            {summary.length >= 300 && "..."}
+            {reportContent && reportContent.length >= 400 && (
+              <span className="text-[--t3]">...</span>
+            )}
           </div>
         </div>
 
-        {/* Suggestions */}
+        {/* Suggestions from pendingConfirmations */}
         <div>
           <div className="text-[10.5px] font-medium text-[--t3] uppercase tracking-wider mb-2.5">
             处理建议
           </div>
           <div className="flex flex-col gap-3">
-            {suggestions.map(({ level, label, text }) => (
-              <div key={label} className="text-[13.5px] text-[--t2] leading-[1.85]">
-                <strong style={{ color: level === "red" ? "var(--red)" : level === "orange" ? "var(--orange)" : "var(--t3)" }}>
-                  {label}
-                </strong>
-                {" — "}{text}
+            {pendingConfirmations.length > 0 ? (
+              pendingConfirmations.map((c, i) => (
+                <SuggestionItem key={i} item={c} />
+              ))
+            ) : (
+              <div className="text-[13.5px] text-[--t3] italic">
+                等待处理建议生成...
               </div>
-            ))}
+            )}
           </div>
         </div>
 
         {/* Actions */}
         <div className="flex flex-col gap-2 pl-6 border-l border-[--bd] justify-center">
-          <button
-            className="px-6 py-2.5 bg-[--blue] border-none rounded-lg text-[13.5px] font-medium text-white cursor-pointer hover:opacity-85 transition-opacity whitespace-nowrap disabled:opacity-50"
-            onClick={handleConfirm}
-            disabled={taskStatus === "done"}
-          >
-            确认写入
-          </button>
+          {isConfirming && (
+            <button
+              className="px-6 py-2.5 bg-[--blue] border-none rounded-lg text-[13.5px] font-medium text-white cursor-pointer hover:opacity-85 transition-opacity whitespace-nowrap"
+              onClick={handleConfirm}
+            >
+              确认写入
+            </button>
+          )}
+          {isDone && (
+            <button
+              className="px-6 py-2.5 bg-[--green-d] border border-[--green]/20 rounded-lg text-[13.5px] font-medium text-[--green] cursor-pointer whitespace-nowrap"
+              disabled
+            >
+              已写入
+            </button>
+          )}
           <button
             className="px-6 py-2.5 bg-transparent border border-[--bd] rounded-lg text-[13.5px] text-[--t2] cursor-pointer hover:bg-[--s2] hover:text-[--text] transition-all whitespace-nowrap disabled:opacity-50"
-            onClick={handleRevise}
-            disabled={taskStatus === "done"}
+            onClick={handleReset}
+            disabled={taskStatus === "running"}
           >
-            修改报告
+            重新开始
           </button>
         </div>
       </div>

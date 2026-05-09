@@ -76,22 +76,33 @@ export const useConsoleStore = create<ConsoleStore>((set) => ({
     }),
 
   updateState: (state) =>
-    set((s) => ({
-      agentStatus: { ...s.agentStatus, ...(state.agent_status || {}) },
-      agentOutputs: { ...s.agentOutputs, ...(state.agent_outputs || {}) },
-      recordIds: state.record_ids || s.recordIds,
-      anomalyRecordIds: state.anomaly_record_ids || s.anomalyRecordIds,
-      riskLevels: { ...s.riskLevels, ...(state.risk_levels || {}) },
-      analysisSummary: state.analysis_summary || s.analysisSummary,
-      reportContent: state.report_content || s.reportContent,
-      pendingConfirmations: state.pending_confirmations || s.pendingConfirmations,
-      taskStatus:
-        state.status === "awaiting_confirm"
-          ? "confirming"
-          : state.status === "completed"
-          ? "done"
-          : s.taskStatus,
-    })),
+    set((s) => {
+      // Update running history item to completed when done
+      const history =
+        s.taskId && state.status === "completed"
+          ? s.history.map((item) =>
+              item.id === s.taskId ? { ...item, status: "completed" as const } : item
+            )
+          : s.history;
+
+      return {
+        agentStatus: { ...s.agentStatus, ...(state.agent_status || {}) },
+        agentOutputs: { ...s.agentOutputs, ...(state.agent_outputs || {}) },
+        recordIds: state.record_ids || s.recordIds,
+        anomalyRecordIds: state.anomaly_record_ids || s.anomalyRecordIds,
+        riskLevels: { ...s.riskLevels, ...(state.risk_levels || {}) },
+        analysisSummary: state.analysis_summary || s.analysisSummary,
+        reportContent: state.report_content || s.reportContent,
+        pendingConfirmations: state.pending_confirmations || s.pendingConfirmations,
+        taskStatus:
+          state.status === "awaiting_confirm"
+            ? "confirming"
+            : state.status === "completed"
+            ? "done"
+            : s.taskStatus,
+        history,
+      };
+    }),
 
   setTaskStatus: (status) => set({ taskStatus: status }),
 

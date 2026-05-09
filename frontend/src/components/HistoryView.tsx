@@ -19,7 +19,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function HistoryView() {
-  const { history, taskStatus, taskId, agentStatus } = useConsoleStore();
+  const { history, taskStatus, taskId, agentStatus, recordIds } = useConsoleStore();
 
   // 运行时显示真实数据，否则显示 demo
   const isRunning = taskStatus === "running" && taskId;
@@ -88,11 +88,11 @@ export default function HistoryView() {
               </span>
 
               <span className="w-24 text-right text-[12px] font-mono text-[--t2]">
-                {isCurrent && agentEntryStatus === "success"
-                  ? "20"
+                {isCurrent && recordIds.length > 0
+                  ? recordIds.length
                   : isCurrent
                   ? "—"
-                  : Math.floor(Math.random() * 20 + 5)}
+                  : "—"}
               </span>
 
               <span className="w-28 text-right text-[11px] font-mono text-[--t3]">

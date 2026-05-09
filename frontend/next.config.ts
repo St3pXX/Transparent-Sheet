@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:8000/api/:path*",
+        destination: "http://localhost:8000/:path*",
       },
       {
         source: "/stream/:path*",
@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
       {
         source: "/confirm/:path*",
         destination: "http://localhost:8000/confirm/:path*",
+      },
+      {
+        source: "/health",
+        destination: "http://localhost:8000/health",
       },
     ];
   },

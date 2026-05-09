@@ -5,10 +5,6 @@ import { useConsoleStore } from "@/lib/store";
 
 type AgentType = "review" | "analysis" | "risk";
 
-interface AgentCardProps {
-  type: AgentType;
-}
-
 const AGENT_META = {
   review: {
     name: "Review Agent",
@@ -61,124 +57,102 @@ function StatusBadge({ status }: { status: AgentStatus | undefined }) {
   return <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[--s3] text-[--t3]">等待</span>;
 }
 
+// ---- Review Content (real data from agent_outputs["review"]) ----
 function ReviewContent({ output }: { output: string }) {
+  if (!output) {
+    return (
+      <div className="text-[12px] text-[--t3] italic">等待数据审核结果...</div>
+    );
+  }
   return (
-    <div className="flex flex-col gap-2">
-      <div className="bg-[--s2] border border-[--bd] rounded-lg p-2.5">
-        <div className="flex justify-between mb-1">
-          <span className="text-[10.5px] font-mono text-[--t3]">REC_042</span>
-          <span className="text-[10px] font-mono text-[--orange]">异常</span>
-        </div>
-        <div className="text-[12px] text-[--t2] leading-snug">
-          数量字段为负值（-3），已标记待处理
-        </div>
-      </div>
-      <div className="bg-[--s2] border border-[--bd] rounded-lg p-2.5">
-        <div className="flex justify-between mb-1">
-          <span className="text-[10.5px] font-mono text-[--t3]">REC_019</span>
-          <span className="text-[10px] font-mono text-[--orange]">异常</span>
-        </div>
-        <div className="text-[12px] text-[--t2] leading-snug">
-          价格字段缺失，已用均值填充
-        </div>
-      </div>
-      <div className="bg-[--s2] border border-[--bd] rounded-lg p-2.5">
-        <div className="flex justify-between mb-1">
-          <span className="text-[10.5px] font-mono text-[--t3]">其余 845 条</span>
-          <span className="text-[10px] font-mono text-[--green]">合规</span>
-        </div>
-        <div className="text-[12px] text-[--t2] leading-snug">
-          字段完整率 98.3%，超过校验阈值（95%）
-        </div>
-      </div>
+    <div className="text-[12px] text-[--t2] whitespace-pre-wrap leading-relaxed">
+      {output.slice(0, 500)}
+      {output.length > 500 && <span className="text-[--t3]">...</span>}
     </div>
   );
 }
 
-function AnalysisContent({ output }: { output: string }) {
+// ---- Analysis Content (real data from analysis_summary + KPI parsing) ----
+function parseAnalysisOutput(summary: string): { sales: string; orders: string; aov: string; repurchase: string; insight: string } | null {
+  if (!summary) return null;
+  // 尝试从 summary 中提取关键指标
+  const salesMatch = summary.match(/销售额[：:]\s*([¥\$\d.\w万]+)/);
+  const ordersMatch = summary.match(/订单[数：:]\s*(\d+)/);
+  const aovMatch = summary.match(/客单价[：:]\s*([¥\$\d.\w]+)/);
+  const repurchaseMatch = summary.match(/复购率[：:]\s*([\d.]+%)/);
+  const insightMatch = summary.match(/建议[：:](.+)/) || summary.match(/(?:分析|结论)[：:](.+)/) || summary.match(/(.+)/);
+
+  return {
+    sales: salesMatch ? salesMatch[1] : "—",
+    orders: ordersMatch ? ordersMatch[1] : "—",
+    aov: aovMatch ? aovMatch[1] : "—",
+    repurchase: repurchaseMatch ? repurchaseMatch[1] : "—",
+    insight: insightMatch ? insightMatch[1].trim() : summary.slice(0, 80),
+  };
+}
+
+function AnalysisContent({ summary }: { summary: string }) {
+  const data = parseAnalysisOutput(summary);
+
+  if (!data) {
+    return <div className="text-[12px] text-[--t3] italic">等待销售分析结果...</div>;
+  }
+
   return (
     <div>
-      {/* KPI Grid */}
       <div className="grid grid-cols-2 gap-1.5 mb-3">
         {[
-          { label: "销售额", value: "¥128.6万", delta: "+12.3%", up: true },
-          { label: "订单数", value: "847", delta: "+8.7%", up: true },
-          { label: "客单价", value: "¥1,518", delta: "-2.1%", up: false },
-          { label: "复购率", value: "23.4%", delta: "+1.8%", up: true },
-        ].map(({ label, value, delta, up }) => (
+          { label: "销售额", value: data.sales },
+          { label: "订单数", value: data.orders },
+          { label: "客单价", value: data.aov },
+          { label: "复购率", value: data.repurchase },
+        ].map(({ label, value }) => (
           <div key={label} className="bg-[--s2] border border-[--bd] rounded-lg p-2.5">
             <div className="text-[10px] text-[--t3] uppercase tracking-wider">{label}</div>
-            <div className="text-[17px] font-medium text-[--text] tracking-[-0.3px] mt-1">
-              {value}
-            </div>
-            <div className={`text-[10px] font-mono mt-0.5 ${up ? "text-[--green]" : "text-[--red]"}`}>
-              {delta}
-            </div>
+            <div className="text-[17px] font-medium text-[--text] tracking-[-0.3px] mt-1">{value}</div>
           </div>
         ))}
       </div>
-
-      {/* Chart */}
-      <div className="h-[50px] mb-3">
-        <svg viewBox="0 0 200 50" preserveAspectRatio="none" className="w-full h-full overflow-visible">
-          <defs>
-            <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0a84ff" stopOpacity="0.18" />
-              <stop offset="100%" stopColor="#0a84ff" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path
-            d="M0,42 L18,38 L36,33 L54,27 L72,30 L90,22 L108,17 L126,13 L144,10 L162,12 L180,7 L200,2 L200,50 L0,50 Z"
-            fill="url(#cg)"
-          />
-          <path
-            d="M0,42 L18,38 L36,33 L54,27 L72,30 L90,22 L108,17 L126,13 L144,10 L162,12 L180,7 L200,2"
-            fill="none"
-            stroke="#0a84ff"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-          <circle cx="200" cy="2" r="2.5" fill="#0a84ff" />
-        </svg>
-      </div>
-
-      {/* Insight */}
-      <div className="border-l-2 border-[--blue] rounded-r-lg bg-[--s2] px-3 py-2 text-[12px] text-[--t2] leading-relaxed">
-        周末促销效果显著，04/25-26 销量环比 +23%；客单价下降可能与折扣套餐推广相关，建议关注定价策略。
-      </div>
+      {data.insight && (
+        <div className="border-l-2 border-[--blue] rounded-r-lg bg-[--s2] px-3 py-2 text-[12px] text-[--t2] leading-relaxed">
+          {data.insight}
+        </div>
+      )}
     </div>
   );
 }
 
+// ---- Risk Content (real data from risk_levels) ----
 function RiskContent({ riskLevels }: { riskLevels: Record<string, string> }) {
-  const items = [
-    { id: "REC_042", level: "high", text: "商品A库存严重不足（剩余23件）", sub: "高风险" },
-    { id: "REC_019", level: "medium", text: "商品B价格异常波动（±15%）", sub: "中风险" },
-    { id: "REC_031", level: "low", text: "物流延迟预警（5笔订单）", sub: "低风险" },
-    { id: "REC_055", level: "low", text: "客户投诉风险升高", sub: "低风险" },
-  ];
+  const entries = Object.entries(riskLevels);
 
-  const highCount = items.filter((i) => i.level === "high").length;
-  const medCount = items.filter((i) => i.level === "medium").length;
-  const lowCount = items.filter((i) => i.level === "low").length;
+  if (entries.length === 0) {
+    return <div className="text-[12px] text-[--t3] italic">等待风险检测结果...</div>;
+  }
+
+  const highCount = entries.filter(([, l]) => l === "high").length;
+  const medCount = entries.filter(([, l]) => l === "medium").length;
+  const lowCount = entries.filter(([, l]) => l === "low").length;
 
   return (
     <div>
       <div className="flex flex-col gap-1.5 mb-2.5">
-        {items.map((item) => (
-          <div key={item.id} className="bg-[--s2] border border-[--bd] rounded-lg p-2.5 flex items-center gap-2.5">
+        {entries.map(([id, level]) => (
+          <div key={id} className="bg-[--s2] border border-[--bd] rounded-lg p-2.5 flex items-center gap-2.5">
             <span
               className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                item.level === "high"
+                level === "high"
                   ? "bg-[--red] shadow-[0_0_5px_rgba(255,69,58,0.7)]"
-                  : item.level === "medium"
+                  : level === "medium"
                   ? "bg-[--orange]"
                   : "bg-[--green]"
               }`}
             />
             <div className="flex-1">
-              <div className="text-[12px] text-[--t2]">{item.text}</div>
-              <div className="text-[10px] font-mono text-[--t3] mt-0.5">{item.id} · {item.sub}</div>
+              <div className="text-[12px] text-[--t2] line-clamp-1">
+                {level === "high" ? "高风险记录" : level === "medium" ? "中风险记录" : "低风险记录"}
+              </div>
+              <div className="text-[10px] font-mono text-[--t3] mt-0.5">{id}</div>
             </div>
           </div>
         ))}
@@ -192,7 +166,7 @@ function RiskContent({ riskLevels }: { riskLevels: Record<string, string> }) {
   );
 }
 
-export default function AgentCard({ type }: AgentCardProps) {
+export default function AgentCard({ type }: { type: AgentType }) {
   const { agentStatus, agentOutputs, riskLevels, analysisSummary } = useConsoleStore();
   const meta = AGENT_META[type];
   const status = agentStatus[type];
@@ -214,7 +188,7 @@ export default function AgentCard({ type }: AgentCardProps) {
       {/* Body */}
       <div className="p-3.5">
         {type === "review" && <ReviewContent output={agentOutputs["review"] || ""} />}
-        {type === "analysis" && <AnalysisContent output={analysisSummary} />}
+        {type === "analysis" && <AnalysisContent summary={analysisSummary} />}
         {type === "risk" && <RiskContent riskLevels={riskLevels} />}
       </div>
     </div>
