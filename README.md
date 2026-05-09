@@ -71,9 +71,8 @@
 | LLM | OpenAI 兼容接口（DeepSeek / MiniMax / OpenAI） |
 | 数据存储 | aiosqlite（异步 SQLite） |
 | 前端框架 | Next.js 15 + App Router |
-| 样式 | Tailwind CSS |
 | 状态管理 | Zustand |
-| 实时通信 | Server-Sent Events（SSE） |
+| 实时通信 | Server-Sent Events（SSE）+ Next.js rewrites 反向代理 |
 | 飞书集成 | Feishu SDK |
 
 ## 项目结构
@@ -136,16 +135,46 @@ cp .env.example .env
 ### 3. 安装后端依赖
 
 ```bash
-cd transparent-sheet
 pip install -e .
 ```
 
-### 4. 启动前端
+### 4. 启动后端（必须先启动）
 
 ```bash
-cd transparent-sheet/frontend
-npm install
-npm run dev
+python -m uvicorn transparent_sheet.api.server:app --host 0.0.0.0 --port 8000
+```
+
+### 5. 打开控制台
+
+- **HTML 控制台**（推荐，无依赖）：http://localhost:8000/
+- **Next.js 前端**（完整 UI）：http://localhost:3000
+
+## 架构
+
+```
+┌──────────────────────────────────────────────────────┐
+│              HTML 控制台 (端口 8000)                   │
+│         Pure HTML/JS — 通过 fetch SSE 调用后端          │
+└──────────────────────┬───────────────────────────────┘
+                       │ HTTP SSE
+                       ▼
+┌──────────────────────────────────────────────────────┐
+│               FastAPI 后端 (端口 8000)                  │
+│  /stream/{task_id} — 启动 LangGraph，执行完中断        │
+│  /confirm/{task_id} — 恢复执行，写入飞书                │
+│  /health — 健康检查                                    │
+│  /        — HTML 控制台                               │
+└──────────────────────┬───────────────────────────────┘
+                       │ LangGraph invoke
+                       ▼
+┌──────────────────────────────────────────────────────┐
+│              LangGraph Agent Pipeline                  │
+│  Entry → Review / Analysis / Risk (并行) → Report      │
+│                                     ↓ interrupt_before │
+│                                  [人工确认中断]           │
+│                                     ↓ confirm           │
+│                                   Writeback → 飞书      │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## 开发
@@ -163,21 +192,39 @@ pytest
 
 ## 当前阶段
 
-**Phase 1-6**：核心流程全部打通 🎉
+**Phase 1-7**：核心流程全部打通 🎉
 
 - ✅ Graph 执行（LangGraph + MemorySaver Checkpointer）
 - ✅ 6 个 Agent 单元测试全部通过（15 passed）
-- ✅ 前端 Next.js + 后端 FastAPI + SSE 流式交互
-- ✅ Streamlit 控制台可独立运行
-- ✅ Next.js rewrite 代理 SSE 到 FastAPI
-- ✅ 前端 Browser UI 端到端验证（部分）
+- ✅ **FastAPI 后端**（SSE 流式 API + 纯 HTML 控制台）
+- ✅ **Next.js 前端** + 后端 + SSE 流式交互（真实数据驱动）
 - ✅ **DeepSeek LLM 集成**（deepseek-chat，真实 AI 推理）
 - ✅ **飞书多维表格写入**（自动创建字段 + batch_create，实测 20 条记录写入成功）
+- ✅ **Phase 7：开源准备**（FastAPI 替代 Streamlit，纯 HTML 控制台）
+
+### 前端说明
+
+| 端口 | 地址 | 说明 |
+|------|------|------|
+| 8000 | http://localhost:8000 | FastAPI + HTML 控制台（轻量，无依赖） |
+| 3001 | http://localhost:3001 | Next.js 前端（完整 UI，真实数据） |
+
+Next.js 前端通过 Next.js rewrites 反向代理到 FastAPI SSE 接口，Agent 状态、KPI 数据、风险标记、报告内容全程实时更新。
+
+### 技术栈更新
+
+| 层级 | 技术 |
+|------|------|
+| 前端框架 | Next.js 15 + App Router + Zustand |
+| 实时通信 | Server-Sent Events（SSE） |
+| 代理层 | Next.js rewrites 反向代理 |
+| 状态管理 | Zustand（前端）+ LangGraph MemorySaver（后端） |
 
 后续计划：
-- Phase 5: Streamlit UX 改进 + FeishuCardChannel
-- Phase 6: ~~Feishu 正式集成~~ ✅ **已完成**
-- Phase 7: 开源准备（PostgreSQL/Turso 替换）
+- Phase 8: PostgreSQL/Turso 替换 SQLite
+- Phase 9: FeishuCardChannel（飞书卡片确认）
+- Phase 10: Agent 重试机制 + 错误恢复
+
 
 ## License
 
