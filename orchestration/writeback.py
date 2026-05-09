@@ -25,7 +25,7 @@ async def writeback_node(state: OrchestrationState) -> OrchestrationState:
     """
     将分析结果写入飞书多维表格。
     用户确认后由 Graph 恢复执行时调用。
-    Phase 4：支持 report_summary 写入 + risk_levels 写入。
+    自动创建所需字段（如果不存在）。
     """
     app_token = os.getenv("FEISHU_BITABLE_APP_TOKEN")
     table_id = os.getenv("FEISHU_BITABLE_TABLE_ID")
@@ -52,11 +52,10 @@ async def writeback_node(state: OrchestrationState) -> OrchestrationState:
             }
         ]
     else:
-        # 有 record_ids 时：从 risk_levels 补全每条记录的风险信息
+        # 有 record_ids 时：批量写入分析记录
         records = []
         for rid in record_ids:
             risk = risk_levels.get(rid, "low")
-            # 写入一条风险记录（关联原记录 ID）
             records.append(
                 {
                     "fields": {
@@ -67,6 +66,7 @@ async def writeback_node(state: OrchestrationState) -> OrchestrationState:
                 }
             )
 
+    # 自动创建字段（若不存在），然后写入
     created_ids = await client.batch_create_records(app_token, table_id, records)
 
     new_outputs = dict(state.get("agent_outputs", {}))
