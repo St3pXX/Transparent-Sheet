@@ -6,6 +6,7 @@ TransparentSheet 控制台 — 纯 HTML + FastAPI
 """
 import asyncio
 import json
+import os
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -20,34 +21,41 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from langgraph.checkpoint.sqlite import SqliteSaver
-
 from transparent_sheet.agents.tools.datastore import set_store
-from transparent_sheet.datastore.sqlite import SQLiteDataStore
+from transparent_sheet.datastore.factory import create_datastore, create_checkpointer
 from transparent_sheet.orchestration.graph import build_graph
 from transparent_sheet.orchestration.state import OrchestrationState
 
 # ============ 全局状态 ============
 _graph = None
 _store = None
-_checkpointer_ctx = None  # SqliteSaver context manager
+_checkpointer_ctx = None  # context manager for cleanup
 
 
 # ============ 生命周期 ============
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global _graph, _store, _checkpointer_ctx
-    _store = SQLiteDataStore("transparent_sheet.db")
+
+    # 根据 DATASTORE_BACKEND 环境变量自动选择后端
+    _store = create_datastore()
     await _store.init_schema()
     set_store(_store)
 
-    # 持久化 Checkpointer — 进程重启后 Graph 状态可恢复
-    _checkpointer_ctx = SqliteSaver.from_conn_string("checkpoints.db")
-    checkpointer = _checkpointer_ctx.__enter__()
+    checkpointer, _checkpointer_ctx = create_checkpointer()
     _graph = build_graph(checkpointer=checkpointer)
-    print("[backend] DataStore + Graph + Checkpointer initialized")
+    backend = os.getenv("DATASTORE_BACKEND", "sqlite").lower()
+    print(f"[backend] DataStore({backend}) + Graph + Checkpointer initialized")
     yield
-    _checkpointer_ctx.__exit__(None, None, None)
+    # 清理 checkpointer context manager
+    if _checkpointer_ctx and hasattr(_checkpointer_ctx, "__exit__"):
+        try:
+            _checkpointer_ctx.__exit__(None, None, None)
+        except Exception:
+            pass
+    # 清理 DataStore 连接池
+    if hasattr(_store, "close"):
+        await _store.close()
     print("[backend] Shutdown")
 
 

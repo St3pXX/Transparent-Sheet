@@ -32,7 +32,7 @@ docs/
 - **后端 API**：FastAPI + SSE（LangGraph 包装层，含纯 HTML 控制台）
 - **前端**：Next.js 15 + Tailwind CSS + Zustand
 - **飞书集成**：Feishu SDK（lark-oapi）
-- **当前阶段**：Phase 1-5 全部完成，测试 24/24 通过
+- **当前阶段**：Phase 1-6 全部完成，测试 28/28 通过
 
 ## 源码结构
 
@@ -48,7 +48,10 @@ transparent-sheet/
 │   └── writeback.py            # 飞书写入节点
 ├── datastore/
 │   ├── interfaces.py / base.py # DataStore 抽象层
-│   └── sqlite.py               # SQLite 异步实现
+│   ├── sqlite.py               # SQLite 异步实现（默认）
+│   ├── postgres.py             # PostgreSQL 实现（asyncpg）
+│   ├── turso.py                # Turso/libSQL 实现
+│   └── factory.py              # 后端工厂（环境变量切换）
 ├── channels/
 │   ├── base.py                 # ConfirmationChannel 抽象
 │   ├── factory.py              # 渠道工厂

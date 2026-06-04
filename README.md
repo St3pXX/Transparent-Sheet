@@ -192,7 +192,7 @@ pytest
 
 ## 当前阶段
 
-**Phase 1-5**：核心流程 + 测试 + 文档全部完成 🎉
+**Phase 1-6**：核心流程 + 多后端 + 测试 + 文档全部完成 🎉
 
 - ✅ Graph 执行（LangGraph + SqliteSaver 持久化 Checkpointer）
 - ✅ 6 个 Agent 单元测试全部通过（24 passed）
@@ -202,7 +202,10 @@ pytest
 - ✅ **DeepSeek LLM 集成**（deepseek-chat，真实 AI 推理）
 - ✅ **飞书多维表格写入**（自动创建字段 + batch_create，实测 20 条记录写入成功）
 - ✅ **DataStore 抽象层**（抽象基类，PostgreSQL / Turso 可替换）
-- ✅ **测试 24/24 通过**（单元 + 集成，含 LLM/HTTP mock）
+- ✅ **PostgresDataStore**（asyncpg 连接池，JSONB，ON CONFLICT upsert）
+- ✅ **TursoDataStore**（libsql-experimental，本地/远程兼容）
+- ✅ **DataStore 工厂**（`DATASTORE_BACKEND` 环境变量一键切换）
+- ✅ **测试 28/28 通过**（6 skipped：无本地 PG / libsql 未安装时自动跳过）
 - ✅ **文档全部同步**（架构、指南、ADR、快速开始）
 
 ### 前端说明
@@ -218,16 +221,36 @@ pytest
 |------|------|
 | Agent 编排 | LangGraph + LangChain + `create_react_agent` |
 | LLM | OpenAI 兼容接口（DeepSeek / MiniMax / OpenAI） |
-| 数据存储 | aiosqlite（异步 SQLite）|
+| 数据存储 | aiosqlite（默认）/ asyncpg（PostgreSQL）/ libsql（Turso）| 可选后端，环境变量切换 |
 | Checkpointer | SqliteSaver（持久化，断点续传） |
 | 前端框架 | Next.js 15 + App Router + Zustand / 纯 HTML 控制台 |
 | 实时通信 | Server-Sent Events（SSE） |
 | 飞书集成 | lark-oapi SDK（令牌桶限流 + 自动字段创建） |
 
 后续计划：
-- Phase 6: PostgreSQL/Turso 替换 SQLite
 - Phase 7: FeishuCardChannel（飞书卡片确认）
 - Phase 8: Agent 重试机制 + 错误恢复
+
+### 数据库后端切换
+
+通过 `DATASTORE_BACKEND` 环境变量切换存储后端：
+
+| 值 | 后端 | 依赖 | 适用场景 |
+|----|------|------|---------|
+| `sqlite` (默认) | aiosqlite | 内置 | 单机开发 |
+| `postgres` | asyncpg | `pip install -e '.[postgres]'` | 生产部署 |
+| `turso` | libsql-experimental | `pip install -e '.[turso]'` | 边缘部署 |
+
+```bash
+# 切换到 PostgreSQL
+export DATASTORE_BACKEND=postgres
+export DATABASE_URL=postgresql://user:pass@localhost:5432/transparent_sheet
+
+# 切换到 Turso
+export DATASTORE_BACKEND=turso
+export TURSO_DATABASE_URL=libsql://your-db.turso.io
+export TURSO_AUTH_TOKEN=your-token
+```
 
 
 ## License

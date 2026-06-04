@@ -49,11 +49,23 @@ class AbstractDataStore(ABC):
 
 ## 实现
 
-| 实现类 | 适用阶段 | 说明 |
-|--------|---------|------|
-| `SQLiteDataStore` | Phase 1-4 | aiosqlite，单机单用户 Demo |
-| `PostgresDataStore` | 开源后 | 可选生产级后端 |
-| `TursoDataStore` | 开源后 | 可选边缘部署后端 |
+| 实现类 | 后端 | 依赖 | 适用场景 |
+|--------|------|------|---------|
+| `SQLiteDataStore` | aiosqlite | 内置 | 单机开发（默认） |
+| `PostgresDataStore` | asyncpg | `pip install -e '.[postgres]'` | 生产部署 |
+| `TursoDataStore` | libsql-experimental | `pip install -e '.[turso]'` | 边缘部署 |
+
+### 工厂切换
+
+通过 `DATASTORE_BACKEND` 环境变量选择后端：
+
+```bash
+export DATASTORE_BACKEND=sqlite    # 默认
+export DATASTORE_BACKEND=postgres  # PostgreSQL
+export DATASTORE_BACKEND=turso     # Turso/libSQL
+```
+
+工厂函数 `create_datastore()` 在 `datastore/factory.py` 中，根据环境变量返回对应实例。
 
 ## SQLite 实现要点
 

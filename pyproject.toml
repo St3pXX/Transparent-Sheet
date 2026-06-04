@@ -18,6 +18,18 @@ dependencies = [
     "respx>=0.21.0",
 ]
 
+[project.optional-dependencies]
+postgres = [
+    "asyncpg>=0.29.0",
+    "langgraph-checkpoint-postgres>=2.0.0",
+]
+turso = [
+    "libsql-experimental>=0.0.40",
+]
+all = [
+    "transparent-sheet[postgres,turso]",
+]
+
 [tool.setuptools]
 package-dir = {transparent_sheet = "."}
 packages = ["transparent_sheet", "transparent_sheet.orchestration", "transparent_sheet.agents", "transparent_sheet.agents.tools", "transparent_sheet.datastore", "transparent_sheet.channels", "transparent_sheet.console", "transparent_sheet.feishu", "transparent_sheet.config", "transparent_sheet.api"]
