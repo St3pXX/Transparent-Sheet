@@ -1,5 +1,6 @@
 import pytest
 import asyncio
+from unittest.mock import AsyncMock, patch
 from transparent_sheet.feishu.client import TokenBucketRateLimiter, FeishuApiClient
 
 def test_token_bucket_rate_limiter():
@@ -16,5 +17,13 @@ def test_client_instantiation():
 @pytest.mark.asyncio
 async def test_batch_create_records():
     client = FeishuApiClient("app-id", "app-secret", qps=20)
-    ids = await client.batch_create_records("table-1", [{"a": 1}, {"b": 2}])
-    assert isinstance(ids, list)
+    # Mock _batch_create_batch 避免真实 HTTP 调用
+    with patch.object(client, "_batch_create_batch", new_callable=AsyncMock) as mock_batch:
+        mock_batch.return_value = ["rec_001", "rec_002"]
+        # 同时 mock ensure_fields 避免真实 API 调用
+        with patch.object(client, "ensure_fields", new_callable=AsyncMock):
+            ids = await client.batch_create_records(
+                "app-token", "table-1", [{"fields": {"a": 1}}, {"fields": {"b": 2}}],
+            )
+    assert ids == ["rec_001", "rec_002"]
+    mock_batch.assert_called_once()

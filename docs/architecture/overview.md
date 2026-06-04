@@ -4,24 +4,22 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│               Next.js + Tailwind CSS 控制台                    │
-│  ┌──────────┬──────────┬──────────┬──────────┬────────┐    │
-│  │ 侧边栏   │ Entry    │ Review   │ Analysis │ Risk   │    │
-│  │ 任务输入  │ Banner   │ AgentCard│ AgentCard│ AgentCard│  │
-│  └──────────┴──────────┴──────────┴──────────┴────────┘    │
-│              ReportCTA (确认/修改)                            │
+│           HTML 控制台 (端口 8000) / Next.js 前端 (端口 3001)   │
+│  Pure HTML/JS 或 Next.js + Tailwind — SSE 实时展示            │
 └─────────────────────────┬────────────────────────────────────┘
                           │ SSE / POST
 ┌─────────────────────────▼────────────────────────────────────┐
-│           FastAPI SSE 后端 (backend/server.py)                  │
-│  /stream/{task_id}  ←  graph.astream_events()                │
-│  /confirm/{task_id}  ←  graph.update_state()                 │
+│           FastAPI 后端 (transparent_sheet/api/server.py)        │
+│  /stream/{task_id}  ←  graph.ainvoke()                       │
+│  /confirm/{task_id} ←  graph.aupdate_state() + ainvoke       │
+│  /health            ←  健康检查                               │
+│  /                  ←  HTML 控制台                            │
 └─────────────────────────┬────────────────────────────────────┘
                           │
 ┌─────────────────────────▼────────────────────────────────────┐
 │               LangGraph Orchestrator                         │
-│               (transparent-sheet/)                            │
 │               interrupt_before="writeback_node"               │
+│               Checkpointer: SqliteSaver（持久化）              │
 └─────────────────────────┬────────────────────────────────────┘
                           │
 ┌─────────────────────────▼────────────────────────────────────┐
@@ -42,17 +40,13 @@ entry_node (数据录入，前置依赖)
 │   review_node    analysis_node    risk_node │
 └─────────────────────────────────────────┘
   ↓
+error_handler_node (标记失败 Agent，不阻塞流程)
+  ↓
 report_node (生成报告 + pending_confirmations)
   ↓
 finish_report_node (中断点)
   ↓
 (interrupt_before="writeback_node")
-  ↓
-┌─────────────────────────────────────────┐
-│    ConfirmationChannel (外部处理)         │
-│    - StreamlitChannel (Phase 1-4)        │
-│    - FeishuCardChannel (Phase 5)        │
-└─────────────────────────────────────────┘
   ↓
 [用户确认 → writeback_node]
 [用户调整 → revise_report_node → writeback_node]
@@ -64,35 +58,35 @@ END
 
 | 层级 | 技术选型 | 说明 |
 |------|---------|------|
-| 前端 | Next.js 15 + Tailwind CSS | 控制台 UI，Phase 1-4 原型 |
-| 后端 API | FastAPI + SSE | LangGraph 包装，SSE 流式推送 |
+| 前端 | HTML 控制台 + Next.js 15 | 双前端，轻量/完整 UI |
+| 后端 API | FastAPI + SSE | LangGraph 包装，流式推送 |
 | Agent 编排 | LangGraph + LangChain | 核心框架 |
 | 链路追踪 | LangSmith | 开发调试 |
-| 飞书接入 | Feishu SDK (Python) | 多维表格 API |
-| 数据存储 | aiosqlite | 异步数据流存储 + Checkpointer |
+| 飞书接入 | lark-oapi SDK | 多维表格 API（令牌桶限流 + 自动字段创建） |
+| 数据存储 | aiosqlite | 异步数据流存储 |
+| Checkpointer | SqliteSaver | 持久化 Graph 状态，支持断点续传 |
 | 存储抽象 | 抽象基类 | PostgreSQL / Turso 可替换 |
-| 旧控制台 | Streamlit | 保留，Phase 1-4 备选 |
-| 流式输出 | SSE + graph.astream_events() | 实时分轨展示 |
+| 流式输出 | SSE + ainvoke | 实时推送 |
 | 限流 | 令牌桶 + asyncio | FeishuApiClient 底层 |
 
 ## 系统数据流
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│           Next.js 前端 (localhost:3000)               │
-│  Sidebar → AgentCard → ReportCTA (Zustand 状态管理)    │
+│           HTML 控制台 / Next.js 前端                    │
+│  fetch SSE / POST → Zustand/JS 状态管理                │
 └──────────────────┬───────────────────────────────────┘
                    │ SSE / POST confirm
 ┌──────────────────▼───────────────────────────────────┐
-│           FastAPI SSE 后端 (localhost:8000)             │
-│  /stream/{task_id}  →  graph.astream_events()         │
-│  /confirm/{task_id} →  graph.update_state() + stream  │
+│           FastAPI 后端 (transparent_sheet/api/server.py)│
+│  /stream/{task_id}  →  graph.ainvoke()               │
+│  /confirm/{task_id} →  graph.aupdate_state() + invoke │
 └──────────────────┬───────────────────────────────────┘
                    │
 ┌──────────────────▼───────────────────────────────────┐
 │           LangGraph Orchestrator                       │
-│  (transparent-sheet/orchestration/graph.py)           │
 │  interrupt_before="writeback_node"                    │
+│  Checkpointer: SqliteSaver (checkpoints.db)           │
 └──────────────────┬───────────────────────────────────┘
                    │
 ┌──────────────────▼───────────────────────────────────┐
@@ -135,5 +129,6 @@ END
 3. **数据/控制流分离** — State 只存引用，数据存 DataStore
 4. **部分失败容错** — Agent 独立状态标记，失败不阻塞全流程
 5. **中断与恢复** — Checkpointer 持久化 + thread_id 隔离
-6. **双入口架构** — ConfirmationChannel 抽象，Streamlit/FastAPI+Next.js 可替换
+6. **双入口架构** — ConfirmationChannel 抽象，Streamlit/FastAPI/飞书可替换
 7. **前后端分离** — FastAPI SSE 网关解耦 LangGraph 与前端框架
+8. **持久化 Checkpointer** — SqliteSaver 断点续传，进程重启不丢失

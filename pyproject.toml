@@ -5,6 +5,7 @@ description = "Multi-agent virtual organization on Feishu Bitable"
 requires-python = ">=3.11"
 dependencies = [
     "langgraph>=0.2.0",
+    "langgraph-checkpoint-sqlite>=1.0.0",
     "langchain-openai>=0.1.0",
     "langchain-core>=0.3.0",
     "aiosqlite>=0.20.0",

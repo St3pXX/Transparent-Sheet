@@ -192,15 +192,18 @@ pytest
 
 ## 当前阶段
 
-**Phase 1-7**：核心流程全部打通 🎉
+**Phase 1-5**：核心流程 + 测试 + 文档全部完成 🎉
 
-- ✅ Graph 执行（LangGraph + MemorySaver Checkpointer）
-- ✅ 6 个 Agent 单元测试全部通过（15 passed）
+- ✅ Graph 执行（LangGraph + SqliteSaver 持久化 Checkpointer）
+- ✅ 6 个 Agent 单元测试全部通过（24 passed）
+- ✅ **error_handler_node** 已接入图边（并行 Agent 部分失败不阻塞）
 - ✅ **FastAPI 后端**（SSE 流式 API + 纯 HTML 控制台）
 - ✅ **Next.js 前端** + 后端 + SSE 流式交互（真实数据驱动）
 - ✅ **DeepSeek LLM 集成**（deepseek-chat，真实 AI 推理）
 - ✅ **飞书多维表格写入**（自动创建字段 + batch_create，实测 20 条记录写入成功）
-- ✅ **Phase 7：开源准备**（FastAPI 替代 Streamlit，纯 HTML 控制台）
+- ✅ **DataStore 抽象层**（抽象基类，PostgreSQL / Turso 可替换）
+- ✅ **测试 24/24 通过**（单元 + 集成，含 LLM/HTTP mock）
+- ✅ **文档全部同步**（架构、指南、ADR、快速开始）
 
 ### 前端说明
 
@@ -209,21 +212,22 @@ pytest
 | 8000 | http://localhost:8000 | FastAPI + HTML 控制台（轻量，无依赖） |
 | 3001 | http://localhost:3001 | Next.js 前端（完整 UI，真实数据） |
 
-Next.js 前端通过 Next.js rewrites 反向代理到 FastAPI SSE 接口，Agent 状态、KPI 数据、风险标记、报告内容全程实时更新。
-
-### 技术栈更新
+### 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| 前端框架 | Next.js 15 + App Router + Zustand |
+| Agent 编排 | LangGraph + LangChain + `create_react_agent` |
+| LLM | OpenAI 兼容接口（DeepSeek / MiniMax / OpenAI） |
+| 数据存储 | aiosqlite（异步 SQLite）|
+| Checkpointer | SqliteSaver（持久化，断点续传） |
+| 前端框架 | Next.js 15 + App Router + Zustand / 纯 HTML 控制台 |
 | 实时通信 | Server-Sent Events（SSE） |
-| 代理层 | Next.js rewrites 反向代理 |
-| 状态管理 | Zustand（前端）+ LangGraph MemorySaver（后端） |
+| 飞书集成 | lark-oapi SDK（令牌桶限流 + 自动字段创建） |
 
 后续计划：
-- Phase 8: PostgreSQL/Turso 替换 SQLite
-- Phase 9: FeishuCardChannel（飞书卡片确认）
-- Phase 10: Agent 重试机制 + 错误恢复
+- Phase 6: PostgreSQL/Turso 替换 SQLite
+- Phase 7: FeishuCardChannel（飞书卡片确认）
+- Phase 8: Agent 重试机制 + 错误恢复
 
 
 ## License

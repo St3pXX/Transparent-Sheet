@@ -20,6 +20,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 
+from langgraph.checkpoint.sqlite import SqliteSaver
+
 from transparent_sheet.agents.tools.datastore import set_store
 from transparent_sheet.datastore.sqlite import SQLiteDataStore
 from transparent_sheet.orchestration.graph import build_graph
@@ -28,18 +30,24 @@ from transparent_sheet.orchestration.state import OrchestrationState
 # ============ 全局状态 ============
 _graph = None
 _store = None
+_checkpointer_ctx = None  # SqliteSaver context manager
 
 
 # ============ 生命周期 ============
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    global _graph, _store
+    global _graph, _store, _checkpointer_ctx
     _store = SQLiteDataStore("transparent_sheet.db")
     await _store.init_schema()
     set_store(_store)
-    _graph = build_graph()
-    print("[backend] DataStore + Graph initialized")
+
+    # 持久化 Checkpointer — 进程重启后 Graph 状态可恢复
+    _checkpointer_ctx = SqliteSaver.from_conn_string("checkpoints.db")
+    checkpointer = _checkpointer_ctx.__enter__()
+    _graph = build_graph(checkpointer=checkpointer)
+    print("[backend] DataStore + Graph + Checkpointer initialized")
     yield
+    _checkpointer_ctx.__exit__(None, None, None)
     print("[backend] Shutdown")
 
 

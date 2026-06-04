@@ -2,21 +2,20 @@
 
 ## 环境要求
 
-- Python >= 3.11
-- Node.js 18+
-- npm
+- Python >= 3.12
+- Node.js 18+（可选，仅 Next.js 前端需要）
 
 ## 安装
 
-### 1. Python 后端（LangGraph Agent 编排）
+### 1. Python 后端（LangGraph Agent 编排 + FastAPI）
 
 ```bash
-cd transparent-sheet
-pip install -e . --no-deps                    # 仅安装包，跳过 feishu 等可选依赖
-pip install -r ../backend/requirements.txt   # FastAPI + SSE 依赖
+git clone https://github.com/St3pXX/Transparent-Sheet.git
+cd Transparent-Sheet
+pip install -e .
 ```
 
-### 2. Next.js 前端
+### 2. Next.js 前端（可选）
 
 ```bash
 cd frontend
@@ -25,36 +24,45 @@ npm install
 
 ## 配置
 
-复制 `.env.example` 为 `.env`，填入飞书配置（可选，Demo 模式不需要）：
+复制 `.env.example` 为 `.env`，填入 LLM 和飞书配置：
 
 ```bash
 cp .env.example .env
 ```
 
+必需的环境变量：
+- `OPENAI_API_KEY` — DeepSeek / OpenAI API Key
+- `OPENAI_BASE_URL` — 默认 `https://api.deepseek.com/v1`
+- `OPENAI_MODEL` — 默认 `deepseek-chat`
+
+飞书写入（可选，Demo 模式不需要）：
+- `FEISHU_APP_ID` / `FEISHU_APP_SECRET`
+- `FEISHU_BITABLE_APP_TOKEN` / `FEISHU_BITABLE_TABLE_ID`
+
 ## 启动
+
+### 方式一：HTML 控制台（推荐，无额外依赖）
+
+```bash
+python -m uvicorn transparent_sheet.api.server:app --host 0.0.0.0 --port 8000
+```
+
+打开 http://localhost:8000
+
+### 方式二：Next.js 前端（完整 UI）
 
 需要两个终端：
 
 ```bash
-# 终端 1：启动 FastAPI SSE 后端（端口 8000）
-cd transparent-sheet
-uvicorn backend.server:app --port 8000 --reload
+# 终端 1：启动 FastAPI 后端
+python -m uvicorn transparent_sheet.api.server:app --host 0.0.0.0 --port 8000
 
-# 终端 2：启动 Next.js 前端（端口 3000）
+# 终端 2：启动 Next.js 前端
 cd frontend
 npm run dev
 ```
 
-打开 http://localhost:3000
-
-## Streamlit 控制台（旧）
-
-旧的 Streamlit 控制台仍可使用，但已被 Next.js 前端替代：
-
-```bash
-cd transparent-sheet
-streamlit run console/app.py
-```
+打开 http://localhost:3001
 
 ## Demo 模式
 
@@ -63,45 +71,23 @@ streamlit run console/app.py
 ## 项目结构
 
 ```
-transparent-sheet/           # Python 后端
+transparent-sheet/
 ├── agents/                 # 6 个 Agent 定义
-├── orchestration/          # Graph + State
-├── datastore/             # SQLiteDataStore
-├── channels/              # ConfirmationChannel 抽象
-├── console/               # 旧 Streamlit 控制台
-└── feishu/                # 飞书 API 客户端
-
-backend/                    # FastAPI SSE 网关
-├── server.py               # /stream/{task_id} SSE 端点
-└── requirements.txt        # fastapi, uvicorn, sse-starlette
-
-frontend/                   # Next.js 15 前端
-├── src/
-│   ├── app/               # page.tsx, layout.tsx, globals.css
-│   ├── components/        # Topbar, Sidebar, EntryBanner, AgentCard, ReportCTA
-│   ├── lib/               # Zustand store, SSE hook
-│   └── types/             # TypeScript 类型
-└── tailwind.config.ts
-```
-
-## SSE 数据流
-
-```
-浏览器 (Next.js)
-    │ EventSource /fetch POST
-    ▼
-FastAPI backend/server.py
-    │ graph.astream_events()
-    ▼
-LangGraph Orchestrator (transparent-sheet)
-    │ 按 node_name 分轨推送
-    ▼
-浏览器 SSE 事件 → Zustand store → React 组件更新
+├── orchestration/          # Graph + State + Writeback
+├── datastore/              # DataStore 抽象 + SQLite
+├── channels/               # ConfirmationChannel 抽象
+├── api/
+│   └── server.py           # FastAPI SSE 后端 + HTML 控制台
+├── config/                 # LLM 配置
+├── feishu/                 # 飞书 API 客户端
+├── console/
+│   └── console.html        # 纯 HTML 控制台页面
+├── frontend/               # Next.js 15 前端（可选）
+└── tests/                  # 测试（24 passed）
 ```
 
 ## 运行测试
 
 ```bash
-cd transparent-sheet
 pytest tests/
 ```

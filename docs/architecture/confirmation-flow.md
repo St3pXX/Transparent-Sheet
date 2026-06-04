@@ -44,15 +44,18 @@ class ConfirmationChannel(ABC):
     async def wait_for_response(self) -> ConfirmationResponse: ...
 
 class StreamlitChannel(ConfirmationChannel):
-    """Phase 1-4：Streamlit 实现"""
+    """Streamlit 实现（已由 FastAPI HTML 控制台替代）"""
+
+class FastAPIConfirmationChannel(ConfirmationChannel):
+    """FastAPI + HTML 控制台实现（当前默认）"""
 
 class FeishuCardChannel(ConfirmationChannel):
-    """Phase 5：飞书消息卡片实现"""
+    """飞书消息卡片实现（后续规划）"""
 
 class ConfirmationChannelFactory:
     @staticmethod
     def create(channel_type: str) -> ConfirmationChannel:
-        return {"streamlit": StreamlitChannel, "feishu": FeishuCardChannel}[channel_type]()
+        return {"streamlit": StreamlitChannel, "fastapi": FastAPIConfirmationChannel, "feishu": FeishuCardChannel}[channel_type]()
 ```
 
 ## 响应类型
