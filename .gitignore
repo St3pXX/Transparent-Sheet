@@ -16,3 +16,4 @@ venv/
 .claude/
 *.db
 *.sqlite
+*.tsbuildinfo
