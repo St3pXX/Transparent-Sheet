@@ -1,28 +1,16 @@
-# Environment variables (NEVER commit these)
-.env
-
-# Python
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+*.so
 .venv/
 venv/
-ENV/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Testing
+.env
+.mypy_cache/
 .pytest_cache/
-.coverage
-htmlcov/
-
-# Database
-*.db
-*.sqlite
-
-# Logs
-*.log
+.ruff_cache/
+.claude/

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TransparentSheet 控制台</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f2f5; color: #1a1a2e; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+  h1 { font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.25rem; }
+  .subtitle { color: #6b7280; font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .agents-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin: 1.5rem 0; }
+  .agent-card { background: white; border-radius: 16px; padding: 1.5rem; text-align: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07); transition: transform 0.2s, box-shadow 0.2s; }
+  .agent-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  .agent-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .agent-name { font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem; }
+  .agent-desc { color: #6b7280; font-size: 0.75rem; }
+  .agent-status { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 600; margin-top: 0.75rem; }
+  .status-running    { background: #e8f0fe; color: #1a73e8; }
+  .status-success   { background: #e6f4ea; color: #34a853; }
+  .status-failed     { background: #fce8e6; color: #ea4335; }
+  .status-skipped    { background: #f3f4f6; color: #6b7280; }
+  .status-pending    { background: #f3f4f6; color: #6b7280; }
+  .status-confirming { background: #f3e8ff; color: #9333ea; }
+  .status-done       { background: #e6f4ea; color: #34a853; }
+  .task-input-wrap { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; align-items: flex-start; }
+  textarea { flex: 1; border: 2px solid #e5e7eb; border-radius: 12px; padding: 0.75rem 1rem; font-size: 1rem;
+    font-family: inherit; resize: vertical; min-height: 80px; outline: none; transition: border-color 0.2s; }
+  textarea:focus { border-color: #1a73e8; }
+  .btn { padding: 0.6rem 1.5rem; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; border: none;
+    transition: all 0.2s; font-family: inherit; }
+  .btn-primary { background: #1a73e8; color: white; }
+  .btn-primary:hover { background: #1557b0; }
+  .btn-primary:disabled { background: #aecaf6; cursor: not-allowed; }
+  .btn-secondary { background: white; color: #374151; border: 2px solid #e5e7eb; }
+  .btn-secondary:hover { border-color: #1a73e8; color: #1a73e8; }
+  .alert { padding: 0.875rem 1rem; border-radius: 10px; margin-bottom: 1rem; font-size: 0.9rem; }
+  .alert-info    { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+  .alert-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+  .alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .alert-error   { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .result-card { background: white; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+  .result-card h3 { font-size: 1rem; margin-bottom: 0.75rem; }
+  .report-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 1rem;
+    white-space: pre-wrap; font-size: 0.875rem; max-height: 400px; overflow-y: auto; line-height: 1.6; }
+  .risk-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; }
+  .confirm-bar { display: flex; gap: 1rem; align-items: center; padding: 1rem; background: white;
+    border-radius: 12px; box-shadow: 0 -2px 12px rgba(0,0,0,0.06); margin-top: 1rem; }
+  .sidebar { background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+  .sidebar h3 { font-size: 1rem; margin-bottom: 1rem; }
+  .config-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; font-size: 0.8rem; }
+  .config-label { color: #6b7280; }
+  .config-val { font-family: monospace; background: #f3f4f6; padding: 0.125rem 0.4rem; border-radius: 4px; }
+  .layout { display: grid; grid-template-columns: 1fr 260px; gap: 1.5rem; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .agents-grid { grid-template-columns: repeat(3, 1fr); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>TransparentSheet 多智能体运营平台</h1>
+  <p class="subtitle">基于 LangGraph + DeepSeek + 飞书多维表格的多 Agent 协作系统</p>
+
+  <div class="layout">
+    <div>
+      <div class="task-input-wrap">
+        <textarea id="taskInput" placeholder="例如：补全本周销售数据并生成运营周报"></textarea>
+        <button class="btn btn-primary" id="runBtn">执行分析</button>
+      </div>
+
+      <h3 style="margin-bottom:1rem">Agent 执行状态</h3>
+      <div class="agents-grid" id="agentsGrid"></div>
+      <div id="statusArea"></div>
+      <div id="resultsArea" style="display:none">
+        <div class="result-card" id="reportCard">
+          <h3>运营周报</h3>
+          <div class="report-box" id="reportContent"></div>
+        </div>
+        <div class="result-card" id="summaryCard" style="display:none">
+          <h3>分析摘要</h3>
+          <div id="summaryContent"></div>
+        </div>
+        <div class="result-card" id="riskCard" style="display:none">
+          <h3>风险检测</h3>
+          <div id="riskContent"></div>
+        </div>
+      </div>
+      <div id="confirmBar" class="confirm-bar" style="display:none">
+        <button class="btn btn-primary" id="confirmBtn">确认写入飞书</button>
+        <button class="btn btn-secondary" id="resetBtn">重新开始</button>
+        <div id="confirmMsg" style="flex:1;color:#6b7280;font-size:0.875rem"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sidebar">
+        <h3>配置</h3>
+        <div class="config-row">
+          <span class="config-label">后端状态:</span>
+          <span id="healthStatus">检查中...</span>
+        </div>
+        <div class="config-row">
+          <span class="config-label">LLM:</span>
+          <span class="config-val">DeepSeek</span>
+        </div>
+        <div class="config-row">
+          <span class="config-label">模型:</span>
+          <span class="config-val">deepseek-chat</span>
+        </div>
+        <hr style="margin:1rem 0;border:none;border-top:1px solid #e5e7eb">
+        <h4 style="font-size:0.875rem;margin-bottom:0.5rem">操作流程</h4>
+        <ol style="font-size:0.8rem;color:#6b7280;padding-left:1.25rem;line-height:1.8">
+          <li>输入运营任务</li>
+          <li>点击「执行分析」</li>
+          <li>查看分析结果</li>
+          <li>确认后写入飞书</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var BACKEND = 'http://localhost:8000';
+var AGENTS = [
+  { icon: '📋', name: 'Entry',     desc: '录入 & 数据补全' },
+  { icon: '🔍', name: 'Review',   desc: '质量审核' },
+  { icon: '📊', name: 'Analysis', desc: '销售分析' },
+  { icon: '⚠️',  name: 'Risk',     desc: '风险检测' },
+  { icon: '📝', name: 'Report',   desc: '汇总报告' },
+];
+var currentTaskId = null;
+var currentStatus = 'idle';
+var currentResult = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+  initAgentCards();
+  checkHealth();
+  setInterval(checkHealth, 10000);
+  document.getElementById('runBtn').addEventListener('click', runTask);
+  document.getElementById('confirmBtn').addEventListener('click', confirmTask);
+  document.getElementById('resetBtn').addEventListener('click', resetTask);
+});
+
+async function checkHealth() {
+  var el = document.getElementById('healthStatus');
+  try {
+    var r = await fetch(BACKEND + '/health');
+    var d = await r.json();
+    if (d.graph && d.store) {
+      el.textContent = '在线';
+      el.style.color = '#16a34a';
+    } else {
+      el.textContent = '部分离线';
+      el.style.color = '#d97706';
+    }
+  } catch(e) {
+    el.textContent = '离线';
+    el.style.color = '#dc2626';
+  }
+}
+
+function initAgentCards() {
+  var grid = document.getElementById('agentsGrid');
+  var html = '';
+  for (var i = 0; i < AGENTS.length; i++) {
+    var a = AGENTS[i];
+    html += '<div class="agent-card"><div class="agent-icon">' + a.icon + '</div><div class="agent-name">' + a.name + '</div><div class="agent-desc">' + a.desc + '</div><span class="agent-status status-pending" id="status-' + a.name.toLowerCase() + '">PENDING</span></div>';
+  }
+  grid.innerHTML = html;
+}
+
+function updateAgentStatus(name, status) {
+  var el = document.getElementById('status-' + name.toLowerCase());
+  if (!el) return;
+  el.className = 'agent-status status-' + status;
+  el.textContent = status.toUpperCase();
+}
+
+function resetAgentCards() {
+  for (var i = 0; i < AGENTS.length; i++) {
+    updateAgentStatus(AGENTS[i].name.toLowerCase(), 'pending');
+  }
+}
+
+async function runTask() {
+  var input = document.getElementById('taskInput').value.trim();
+  if (!input) { alert('请输入运营任务'); return; }
+  currentTaskId = crypto.randomUUID();
+  currentStatus = 'running';
+  currentResult = null;
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('resultsArea').style.display = 'none';
+  document.getElementById('confirmBar').style.display = 'none';
+  resetAgentCards();
+  showStatus('info', 'Agent 执行中，请稍候...');
+  try {
+    var url = BACKEND + '/stream/' + currentTaskId + '?input=' + encodeURIComponent(input);
+    var resp = await fetch(url);
+    var reader = resp.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+    while (true) {
+      var result = await reader.read();
+      if (result.done) break;
+      buffer += decoder.decode(result.value, { stream: true });
+      var lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (var j = 0; j < lines.length; j++) {
+        var line = lines[j];
+        if (line.indexOf('data: ') !== 0) continue;
+        try {
+          var ev = JSON.parse(line.slice(6));
+          handleEvent(ev);
+        } catch(e) {}
+      }
+    }
+  } catch(e) {
+    showStatus('error', '连接失败：' + e.message);
+    currentStatus = 'error';
+    document.getElementById('runBtn').disabled = false;
+  }
+}
+
+function handleEvent(ev) {
+  if (ev.type === 'state' && ev.data) {
+    var agentStatus = ev.data.agent_status || {};
+    for (var key in agentStatus) {
+      updateAgentStatus(key, agentStatus[key]);
+    }
+    currentResult = ev.data;
+  }
+  if (ev.type === 'confirm_required' || ev.type === 'waiting_confirm') {
+    currentStatus = 'confirming';
+    showStatus('warning', '分析完成，请审核后点击「确认写入飞书」');
+    showResults();
+    document.getElementById('confirmBar').style.display = 'flex';
+    document.getElementById('confirmMsg').textContent = '等待确认写入飞书...';
+    document.getElementById('runBtn').disabled = false;
+  }
+  if (ev.type === 'done') {
+    currentStatus = 'done';
+    showStatus('success', '任务完成!');
+    if (ev.data && ev.data.agent_outputs && ev.data.agent_outputs.writeback) {
+      document.getElementById('confirmMsg').textContent = ev.data.agent_outputs.writeback;
+    }
+  }
+  if (ev.type === 'error') {
+    currentStatus = 'error';
+    var msg = (ev.data && ev.data.message) ? ev.data.message : '未知错误';
+    showStatus('error', '执行出错：' + msg);
+    document.getElementById('runBtn').disabled = false;
+  }
+}
+
+function showResults() {
+  if (!currentResult) return;
+  var area = document.getElementById('resultsArea');
+  area.style.display = 'block';
+  var report = currentResult.report_content || '';
+  if (report) {
+    document.getElementById('reportContent').textContent = report.slice(0, 5000);
+    document.getElementById('reportCard').style.display = 'block';
+  } else {
+    document.getElementById('reportCard').style.display = 'none';
+  }
+  var summary = currentResult.analysis_summary || '';
+  if (summary) {
+    document.getElementById('summaryContent').textContent = summary;
+    document.getElementById('summaryCard').style.display = 'block';
+  } else {
+    document.getElementById('summaryCard').style.display = 'none';
+  }
+  var riskLevels = currentResult.risk_levels || {};
+  var riskEntries = Object.keys(riskLevels);
+  if (riskEntries.length) {
+    var riskHtml = '';
+    for (var k = 0; k < riskEntries.length; k++) {
+      var id = riskEntries[k];
+      var level = riskLevels[id];
+      var emoji = level === 'high' ? '🔴' : (level === 'medium' ? '🟡' : '🟢');
+      riskHtml += '<div class="risk-item"><span>' + emoji + '</span> <code style="font-size:0.8rem">' + id + '</code> — ' + level + '</div>';
+    }
+    document.getElementById('riskContent').innerHTML = riskHtml;
+    document.getElementById('riskCard').style.display = 'block';
+  } else {
+    document.getElementById('riskCard').style.display = 'none';
+  }
+}
+
+async function confirmTask() {
+  if (!currentTaskId) return;
+  var btn = document.getElementById('confirmBtn');
+  btn.disabled = true;
+  document.getElementById('confirmMsg').textContent = '正在写入飞书...';
+  try {
+    var url = BACKEND + '/confirm/' + currentTaskId + '?action=confirm';
+    var resp = await fetch(url);
+    var reader = resp.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+    while (true) {
+      var result = await reader.read();
+      if (result.done) break;
+      buffer += decoder.decode(result.value, { stream: true });
+      var lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (var j = 0; j < lines.length; j++) {
+        var line = lines[j];
+        if (line.indexOf('data: ') !== 0) continue;
+        try {
+          var ev = JSON.parse(line.slice(6));
+          if (ev.type === 'done') {
+            currentStatus = 'done';
+            showStatus('success', (ev.data && ev.data.agent_outputs && ev.data.agent_outputs.writeback) ? ev.data.agent_outputs.writeback : '写入完成');
+            document.getElementById('confirmMsg').textContent = (ev.data && ev.data.agent_outputs && ev.data.agent_outputs.writeback) ? ev.data.agent_outputs.writeback : '写入完成';
+            btn.textContent = '写入完成';
+          }
+          if (ev.type === 'error') {
+            showStatus('error', '写入失败：' + ((ev.data && ev.data.message) ? ev.data.message : ''));
+            btn.disabled = false;
+            document.getElementById('confirmMsg').textContent = '';
+          }
+        } catch(e) {}
+      }
+    }
+  } catch(e) {
+    showStatus('error', '写入失败：' + e.message);
+    btn.disabled = false;
+    document.getElementById('confirmMsg').textContent = '';
+  }
+}
+
+function resetTask() {
+  currentTaskId = null;
+  currentStatus = 'idle';
+  currentResult = null;
+  document.getElementById('taskInput').value = '';
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('resultsArea').style.display = 'none';
+  document.getElementById('confirmBar').style.display = 'none';
+  document.getElementById('confirmBtn').disabled = false;
+  document.getElementById('confirmBtn').textContent = '确认写入飞书';
+  document.getElementById('confirmMsg').textContent = '';
+  clearStatus();
+  resetAgentCards();
+}
+
+function showStatus(type, msg) {
+  document.getElementById('statusArea').innerHTML = '<div class="alert alert-' + type + '">' + msg + '</div>';
+}
+
+function clearStatus() {
+  document.getElementById('statusArea').innerHTML = '';
+}
+</script>
+</body>
+</html>
