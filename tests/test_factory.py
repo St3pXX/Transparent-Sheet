@@ -40,7 +40,6 @@ def test_factory_postgres():
 
 def test_factory_turso():
     """DATASTORE_BACKEND=turso 返回 TursoDataStore。"""
-    pytest.importorskip("libsql_experimental", reason="需要 libsql-experimental")
     from transparent_sheet.datastore.factory import create_datastore
     from transparent_sheet.datastore.turso import TursoDataStore
 

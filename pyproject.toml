@@ -24,7 +24,7 @@ postgres = [
     "langgraph-checkpoint-postgres>=2.0.0",
 ]
 turso = [
-    "libsql-experimental>=0.0.40",
+    "libsql-client>=0.3.0",
 ]
 all = [
     "transparent-sheet[postgres,turso]",
