@@ -242,3 +242,97 @@ class FeishuApiClient:
                     record_ids.append(record.record_id)
 
         return record_ids
+
+    # ------------------------------------------------------------------
+    # 消息发送（用于飞书卡片确认）
+    # ------------------------------------------------------------------
+
+    async def send_message(
+        self,
+        receive_id: str,
+        receive_id_type: str = "chat_id",
+        msg_type: str = "interactive",
+        content: str = "",
+    ) -> dict[str, Any]:
+        """发送消息到飞书群聊或用户。
+
+        Args:
+            receive_id: 接收者 ID（群聊 ID 或用户 open_id）
+            receive_id_type: ID 类型（chat_id / open_id）
+            msg_type: 消息类型（interactive / text / post）
+            content: 消息内容（JSON 字符串）
+
+        Returns:
+            飞书 API 返回的 data 字段，包含 message_id
+        """
+        from lark_oapi.api.im.v1 import CreateMessageRequest, CreateMessageRequestBody
+
+        await self._rate_limiter.acquire()
+
+        body = (
+            CreateMessageRequestBody.builder()
+            .receive_id(receive_id)
+            .msg_type(msg_type)
+            .content(content)
+            .build()
+        )
+
+        request = (
+            CreateMessageRequest.builder()
+            .receive_id_type(receive_id_type)
+            .request_body(body)
+            .build()
+        )
+
+        response = await self._client.im.v1.message.acreate(request)
+
+        if not response.success():
+            raise FeishuAPIError(
+                code=response.code,
+                msg=response.msg,
+                raw=response.raw,
+            )
+
+        result: dict[str, Any] = {}
+        if response.data and response.data.data:
+            result["message_id"] = response.data.data.message_id
+        return result
+
+    async def update_message(
+        self,
+        message_id: str,
+        msg_type: str = "interactive",
+        content: str = "",
+    ) -> None:
+        """更新已发送的消息（如修改卡片状态）。
+
+        Args:
+            message_id: 消息 ID
+            msg_type: 消息类型
+            content: 新的消息内容（JSON 字符串）
+        """
+        from lark_oapi.api.im.v1 import PatchMessageRequest, PatchMessageRequestBody
+
+        await self._rate_limiter.acquire()
+
+        body = (
+            PatchMessageRequestBody.builder()
+            .content(content)
+            .build()
+        )
+
+        request = (
+            PatchMessageRequest.builder()
+            .message_id(message_id)
+            .request_body(body)
+            .build()
+        )
+
+        response = await self._client.im.v1.message.apatch(request)
+
+        if not response.success():
+            raise FeishuAPIError(
+                code=response.code,
+                msg=response.msg,
+                raw=response.raw,
+            )

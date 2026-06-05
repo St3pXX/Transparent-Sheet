@@ -192,7 +192,7 @@ pytest
 
 ## 当前阶段
 
-**Phase 1-6**：核心流程 + 多后端 + 测试 + 文档全部完成 🎉
+**Phase 1-7**：核心流程 + 多后端 + 飞书卡片确认 + 测试 + 文档全部完成 🎉
 
 - ✅ Graph 执行（LangGraph + SqliteSaver 持久化 Checkpointer）
 - ✅ 6 个 Agent 单元测试全部通过（24 passed）
@@ -207,6 +207,9 @@ pytest
 - ✅ **DataStore 工厂**（`DATASTORE_BACKEND` 环境变量一键切换）
 - ✅ **测试 28/28 通过**（6 skipped：无本地 PG / libsql 未安装时自动跳过）
 - ✅ **文档全部同步**（架构、指南、ADR、快速开始）
+- ✅ **FeishuCardChannel**（飞书交互式卡片确认，Future 回调机制）
+- ✅ **飞书消息 API**（send_message + update_message，lark-oapi SDK）
+- ✅ **Webhook 端点**（/feishu/card_callback + /feishu/event，@机器人触发任务）
 
 ### 前端说明
 
@@ -228,7 +231,6 @@ pytest
 | 飞书集成 | lark-oapi SDK（令牌桶限流 + 自动字段创建） |
 
 后续计划：
-- Phase 7: FeishuCardChannel（飞书卡片确认）
 - Phase 8: Agent 重试机制 + 错误恢复
 
 ### 数据库后端切换
@@ -251,6 +253,22 @@ export DATASTORE_BACKEND=turso
 export TURSO_DATABASE_URL=libsql://your-db.turso.io
 export TURSO_AUTH_TOKEN=your-token
 ```
+
+### 飞书卡片确认
+
+Graph 中断时，可通过飞书交互式消息卡片进行人工确认：
+
+```bash
+export FEISHU_APP_ID=cli_xxxx
+export FEISHU_APP_SECRET=xxxx
+export FEISHU_CHAT_ID=oc_xxxx  # 目标群聊 ID
+```
+
+飞书回调端点：
+- `POST /feishu/card_callback` — 卡片按钮回调（确认/修改）
+- `POST /feishu/event` — 飞书事件订阅（@机器人 消息触发任务）
+
+工作流程：@机器人 发送任务 → Agent 执行 → 中断 → 发送卡片 → 用户点击按钮 → 恢复执行 → 写入飞书表格
 
 
 ## License

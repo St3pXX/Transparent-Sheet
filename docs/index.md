@@ -32,7 +32,7 @@ docs/
 - **后端 API**：FastAPI + SSE（LangGraph 包装层，含纯 HTML 控制台）
 - **前端**：Next.js 15 + Tailwind CSS + Zustand
 - **飞书集成**：Feishu SDK（lark-oapi）
-- **当前阶段**：Phase 1-6 全部完成，测试 28/28 通过
+- **当前阶段**：Phase 1-7 全部完成，测试 40/40 通过
 
 ## 源码结构
 
@@ -54,7 +54,9 @@ transparent-sheet/
 │   └── factory.py              # 后端工厂（环境变量切换）
 ├── channels/
 │   ├── base.py                 # ConfirmationChannel 抽象
-│   ├── factory.py              # 渠道工厂
+│   ├── callback_registry.py    # Future 回调注册表（飞书卡片桥接）
+│   ├── feishu_card.py          # FeishuCardChannel（飞书卡片确认）
+│   ├── factory.py              # 渠道工厂（streamlit / feishu）
 │   └── streamlit.py            # Streamlit 确认渠道
 ├── api/
 │   └── server.py               # FastAPI SSE 后端 + 纯 HTML 控制台

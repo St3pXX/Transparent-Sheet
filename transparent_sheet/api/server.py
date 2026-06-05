@@ -17,11 +17,13 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent.parent / "../.env")
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from transparent_sheet.agents.tools.datastore import set_store
+from transparent_sheet.channels.callback_registry import resolve as resolve_callback
+from transparent_sheet.channels.base import ConfirmationResponse
 from transparent_sheet.datastore.factory import create_datastore, create_checkpointer
 from transparent_sheet.orchestration.graph import build_graph
 from transparent_sheet.orchestration.state import OrchestrationState
@@ -173,7 +175,190 @@ async def confirm_task(task_id: str, action: str = "confirm"):
 @app.get("/health")
 async def health():
     """健康检查"""
-    return {"status": "ok", "graph": _graph is not None, "store": _store is not None}
+    from transparent_sheet.channels.callback_registry import get_pending_task_ids
+    return {
+        "status": "ok",
+        "graph": _graph is not None,
+        "store": _store is not None,
+        "pending_confirmations": get_pending_task_ids(),
+    }
+
+
+# ============ 飞书卡片回调 ============
+@app.post("/feishu/card_callback")
+async def feishu_card_callback(request: Request):
+    """
+    接收飞书卡片按钮回调。
+
+    飞书卡片的按钮点击会触发此端点。
+    请求体包含 action.value，其中包含 task_id 和 action（confirm/revise）。
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON body")
+
+    # 飞书卡片回调格式：{ "action": { "value": { "task_id": "...", "action": "confirm" } } }
+    action_data = body.get("action", {}).get("value", {})
+    task_id = action_data.get("task_id", "")
+    action = action_data.get("action", "confirm")
+
+    if not task_id:
+        # 飞书 URL 验证请求（首次配置回调时）
+        challenge = body.get("challenge")
+        if challenge:
+            return JSONResponse({"challenge": challenge})
+        raise HTTPException(400, "task_id is required")
+
+    # 构建 ConfirmationResponse
+    if action == "confirm":
+        response = ConfirmationResponse(action="confirm")
+    elif action == "revise":
+        response = ConfirmationResponse(action="revise", modifications=[])
+    else:
+        response = ConfirmationResponse(action="confirm")
+
+    # 解析注册的 Future
+    resolved = resolve_callback(task_id, response)
+
+    if resolved:
+        print(f"[feishu] 卡片回调已处理: task_id={task_id}, action={action}")
+        # 更新卡片状态为"已处理"
+        try:
+            _update_card_after_action(task_id, action)
+        except Exception:
+            pass
+        return JSONResponse({"code": 0, "msg": "ok"})
+    else:
+        print(f"[feishu] 卡片回调: task_id={task_id} 无待确认任务")
+        return JSONResponse({"code": 0, "msg": "no pending task"})
+
+
+def _update_card_after_action(task_id: str, action: str):
+    """卡片操作后更新卡片状态（同步辅助函数，供异步调用）。"""
+    # 此处可扩展为更新飞书卡片内容（如显示"已确认"状态）
+    pass
+
+
+@app.post("/feishu/event")
+async def feishu_event(request: Request):
+    """
+    接收飞书开放平台事件回调。
+
+    处理 @机器人 消息，触发任务执行。
+    飞书事件订阅的验证请求（challenge）也在此处理。
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON body")
+
+    # URL 验证请求
+    challenge = body.get("challenge")
+    if challenge:
+        return JSONResponse({"challenge": challenge})
+
+    # 事件处理
+    header = body.get("header", {})
+    event_type = header.get("event_type", "")
+
+    if event_type == "im.message.receive_v1":
+        event = body.get("event", {})
+        message = event.get("message", {})
+        chat_id = message.get("chat_id", "")
+        message_type = message.get("message_type", "")
+
+        if message_type == "text":
+            import json as _json
+            content = _json.loads(message.get("content", "{}"))
+            text = content.get("text", "").strip()
+
+            # 去除 @机器人 的 mention
+            mentions = event.get("message", {}).get("mentions", [])
+            for m in mentions:
+                text = text.replace(m.get("key", ""), "").strip()
+
+            if text and chat_id:
+                # 异步触发任务执行（不阻塞事件响应）
+                asyncio.create_task(
+                    _run_feishu_task(text, chat_id)
+                )
+
+    return JSONResponse({"code": 0, "msg": "ok"})
+
+
+async def _run_feishu_task(input_text: str, chat_id: str):
+    """从飞书消息触发任务执行，中断时发送卡片确认。"""
+    if not _graph or not _store:
+        print("[feishu] 后端未初始化，跳过任务")
+        return
+
+    task_id = str(uuid.uuid4())
+    user_id = f"feishu:{chat_id}"
+    thread_id = f"{user_id}:{task_id}"
+    config = {"configurable": {"thread_id": thread_id, "user_id": user_id}}
+
+    initial_state: OrchestrationState = {
+        "task_id": task_id,
+        "user_id": user_id,
+        "task": input_text,
+        "intent": "",
+        "sub_tasks": [],
+        "record_ids": [],
+        "anomaly_record_ids": [],
+        "agent_status": {},
+        "agent_outputs": {},
+        "risk_levels": {},
+        "analysis_summary": "",
+        "report_content": "",
+        "original_report": "",
+        "pending_confirmations": [],
+        "confirmed": False,
+        "confirmed_modifications": [],
+        "status": "pending",
+        "error": None,
+    }
+
+    try:
+        # 执行到中断点
+        await _graph.ainvoke(
+            {"messages": [("user", input_text)], **initial_state},
+            config,
+        )
+
+        # 获取中断后的状态
+        snapshot = await _graph.aget_state(config)
+        state = snapshot.values if snapshot else {}
+
+        if state.get("status") == "awaiting_confirm":
+            # 发送飞书卡片确认
+            from transparent_sheet.channels.feishu_card import FeishuCardChannel
+            from transparent_sheet.channels import callback_registry
+
+            channel = FeishuCardChannel(chat_id=chat_id)
+            await channel.render_confirmation(state)
+
+            # 注册回调等待
+            future = callback_registry.register(task_id, timeout=600.0)
+            try:
+                response = await asyncio.wait_for(future, timeout=600.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                callback_registry.cancel(task_id)
+                response = ConfirmationResponse(action="confirm")
+
+            # 恢复执行
+            if response.action == "confirm":
+                await _graph.aupdate_state(config, {"confirmed": True})
+            else:
+                await _graph.aupdate_state(config, {
+                    "confirmed_modifications": response.modifications,
+                })
+
+            await _graph.ainvoke(None, config)
+            print(f"[feishu] 任务 {task_id} 完成")
+
+    except Exception as e:
+        print(f"[feishu] 任务 {task_id} 失败: {e}")
 
 
 # ============ HTML 控制台 ============
